@@ -1,0 +1,764 @@
+---
+title: "Guía visual · ggplot2 Fundamentals"
+subtitle: "Tipos de variables, geoms básicos y avanzados"
+author: ""
+date: today
+lang: es
+format:
+  html:
+    toc: true
+    toc-title: "Contenido"
+    toc-depth: 3
+    toc-location: left
+    embed-resources: true
+    code-fold: true
+    code-summary: "Ver código"
+    highlight-style: github
+    theme: cosmo
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{=html}
+<style>
+/* ── Google Fonts ─────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;1,400&family=Source+Code+Pro:wght@400;600&display=swap');
+
+/* ── Variables de paleta (tierra) ───────────────────────────────── */
+:root {
+  --c-bg:       #FDF8EF;
+  --c-surface:  #F2E9D8;
+  --c-accent:   #C8960C;
+  --c-dark:     #1E1A0E;
+  --c-mid:      #7A6520;
+  --c-army:     #4B6440;
+  --c-fawn:     #C9AA71;
+  --c-border:   #D4C9B0;
+  --c-muted:    #857355;
+}
+
+/* ── Base ────────────────────────────────────────────────────────── */
+body {
+  font-family: 'Source Sans 3', sans-serif;
+  background-color: var(--c-bg);
+  color: var(--c-dark);
+  line-height: 1.65;
+}
+
+/* ── Títulos ─────────────────────────────────────────────────────── */
+h1.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.4rem;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  color: var(--c-dark);
+  border-bottom: 4px solid var(--c-accent);
+  padding-bottom: 0.4em;
+}
+
+.subtitle {
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 1.05rem;
+  color: var(--c-muted);
+  font-weight: 300;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.55rem;
+  color: var(--c-dark);
+  border-bottom: 2px solid var(--c-border);
+  padding-bottom: 0.25em;
+  margin-top: 2.2em;
+}
+
+h3 {
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--c-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-top: 1.8em;
+}
+
+/* ── TOC ─────────────────────────────────────────────────────────── */
+#TOC {
+  background: var(--c-surface);
+  border-right: 2px solid var(--c-border);
+  padding: 1rem;
+  font-size: 0.88rem;
+}
+
+#TOC a {
+  color: var(--c-mid);
+  text-decoration: none;
+}
+
+#TOC a:hover {
+  color: var(--c-accent);
+}
+
+/* ── Tablas knitr ────────────────────────────────────────────────── */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+thead th {
+  background-color: var(--c-army);
+  color: var(--c-bg);
+  padding: 8px 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-size: 0.8rem;
+}
+
+tbody td {
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+tbody tr:nth-child(even) td {
+  background-color: var(--c-surface);
+}
+
+tbody tr:hover td {
+  background-color: #EDE1C4;
+}
+
+/* ── Código inline ───────────────────────────────────────────────── */
+code {
+  font-family: 'Source Code Pro', monospace;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 0.87em;
+  color: var(--c-army);
+}
+
+/* ── Callouts ────────────────────────────────────────────────────── */
+.callout {
+  border-radius: 4px;
+}
+
+.callout-note {
+  border-left-color: var(--c-accent) !important;
+  background: #FEF6E0 !important;
+}
+
+/* ── Leyenda de color (personalizada) ───────────────────────────── */
+.leyenda-geom {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  padding: 10px 16px;
+  margin: 0.8em 0 1.2em 0;
+  font-size: 0.88rem;
+}
+
+.leyenda-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  color: var(--c-dark);
+}
+
+.badge {
+  width: 18px; height: 18px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.badge-must  { background: #4B6440; }
+.badge-can   { background: #C8960C; }
+.badge-no    { background: #D4C9B0; border: 1px solid #B8A990; }
+</style>
+```
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+library(patchwork)
+library(glue)
+
+# ── Paleta de color coherente ────────────────────────────────────────────────
+PAL_MUST   <- "#4B6440"   # Army Green   → estética obligatoria
+PAL_CAN    <- "#C8960C"   # M. Sunburst  → estética opcional
+PAL_NO     <- "#D4C9B0"   # Fawn claro   → no aplica
+PAL_BG     <- "#FDF8EF"   # Crema cálida → fondo de gráficos
+PAL_ACCENT <- "#C8960C"
+PAL_DARK   <- "#1E1A0E"
+PAL_MID    <- "#7A6520"
+PAL_GRID   <- "#E2D9C8"
+PAL_TEXT   <- "#2C2416"
+
+# ── Tema base para todos los gráficos ───────────────────────────────────────
+theme_guide <- function(base_size = 11) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      # Fondo
+      plot.background    = element_rect(fill = PAL_BG,  color = NA),
+      panel.background   = element_rect(fill = PAL_BG,  color = NA),
+      # Cuadrícula
+      panel.grid.major   = element_line(color = PAL_GRID, linewidth = 0.4),
+      panel.grid.minor   = element_blank(),
+      # Títulos
+      plot.title         = element_text(
+        family = "serif", face = "bold",
+        size   = base_size + 2, color = PAL_DARK,
+        margin = margin(b = 5)
+      ),
+      plot.subtitle      = element_text(
+        size   = base_size - 1, color = PAL_MID,
+        margin = margin(b = 8)
+      ),
+      plot.caption       = element_text(
+        size = base_size - 2.5, color = PAL_MID, hjust = 1,
+        margin = margin(t = 8)
+      ),
+      # Ejes
+      axis.title         = element_text(size = base_size - 0.5,
+                                         color = PAL_MID, face = "bold"),
+      axis.text          = element_text(size = base_size - 1, color = PAL_TEXT),
+      axis.ticks         = element_line(color = PAL_GRID),
+      # Leyenda
+      legend.position    = "bottom",
+      legend.title       = element_text(size = base_size - 1, face = "bold",
+                                         color = PAL_TEXT),
+      legend.text        = element_text(size = base_size - 1.5, color = PAL_TEXT),
+      legend.key         = element_rect(fill = PAL_BG, color = NA),
+      legend.background  = element_rect(fill = PAL_BG, color = NA),
+      # Strips (facetas)
+      strip.background   = element_rect(fill = "#EDE5D0", color = NA),
+      strip.text         = element_text(face = "bold", size = base_size - 1,
+                                         color = PAL_DARK),
+      # Márgenes del plot completo
+      plot.margin        = margin(14, 14, 14, 14)
+    )
+}
+
+theme_set(theme_guide())
+```
+
+---
+
+# 1 · Tipos de variables
+
+> Ejecuta `glimpse(tu_dataframe)` para identificar los tipos de tus variables antes de elegir un geom.
+
+## Datos de ejemplo
+
+```{r}
+example_df <- tibble(
+  pais       = c("Peru", "Germany", "United States"),
+  grupo_ing  = factor(c("middle_income", "high_income", "high_income")),
+  aprobado   = c(TRUE, FALSE, TRUE),
+  nivel      = ordered(c("first", "second", "third"),
+                       levels = c("first", "second", "third")),
+  puntaje    = c(11.71, 14.20, 9.85),
+  n          = c(8L, 7L, 10L),
+  fecha      = as.Date(c("1972-03-12", "1982-04-18", "1999-10-22")),
+  fecha_hora = as.POSIXct(
+    c("2012-02-09 00:00:00", "2014-07-18 13:30:00", "2016-11-02 08:15:00"),
+    tz = "UTC"
+  )
+)
+
+glimpse(example_df)
+```
+
+## Tabla de referencia
+
+```{r}
+#| label: tbl-tipos
+#| tbl-cap: "Tipos de variables útiles para visualización en ggplot2"
+
+tibble(
+  `Tipo R`    = c("<chr>", "<fct>", "<lgl>", "<ord>",
+                  "<dbl>", "<int>", "<date>", "<dttm>"),
+  Clase       = c("character", "factor", "logical", "ordered",
+                  "double", "integer", "date", "datetime"),
+  Categoría   = c("Discreta", "Discreta", "Discreta", "Discreta",
+                  "Continua", "Continua", "Fecha / Tiempo", "Fecha / Tiempo"),
+  `Ejemplo`   = c('"Germany"', "high_income", "TRUE", "first",
+                  "11.71", "8L", "1972-03-12", "2012-02-09 00:00:00"),
+  `Convertir` = c("as.character()", "as.factor()", "as.logical()",
+                  "as.ordered()", "as.double()", "as.integer()",
+                  "as.Date()", "as.POSIXct()")
+) |>
+  knitr::kable(align = c("l","l","l","l","l"))
+```
+
+## Mapa visual de categorías
+
+```{r}
+#| label: fig-tipos
+#| fig-cap: "Clasificación de tipos de variables por categoría estadística"
+#| fig-height: 3.8
+#| fig-width: 8
+
+tipos_df <- tibble(
+  tipo_r   = c("<chr>", "<fct>", "<lgl>", "<ord>",
+               "<dbl>", "<int>",
+               "<date>", "<dttm>"),
+  clase    = c("character", "factor", "logical", "ordered",
+               "double", "integer",
+               "date", "datetime"),
+  cat      = factor(
+    c("Discreta", "Discreta", "Discreta", "Discreta",
+      "Continua", "Continua",
+      "Fecha / Tiempo", "Fecha / Tiempo"),
+    levels = c("Discreta", "Continua", "Fecha / Tiempo")
+  ),
+  cat_ord  = as.integer(
+    factor(c("Discreta","Discreta","Discreta","Discreta",
+             "Continua","Continua",
+             "Fecha / Tiempo","Fecha / Tiempo"),
+           levels = c("Discreta","Continua","Fecha / Tiempo"))
+  ),
+  # Posición x dentro de cada categoría
+  x_inner  = c(1, 2, 3, 4,  1, 2,  1, 2)
+)
+
+cat_colors <- c(
+  "Discreta"       = "#4B6440",
+  "Continua"       = "#C8960C",
+  "Fecha / Tiempo" = "#7A6520"
+)
+
+# Rectángulos de categoría
+cat_rects <- tibble(
+  cat     = factor(c("Discreta","Continua","Fecha / Tiempo"),
+                   levels = c("Discreta","Continua","Fecha / Tiempo")),
+  xmin    = c(0.4, 4.6, 6.6),
+  xmax    = c(4.5, 6.5, 8.5),
+  ymin    = 0.55, ymax = 1.45
+)
+
+# Posición global x por tipo
+tipos_df <- tipos_df |>
+  mutate(x_global = case_when(
+    cat == "Discreta"       ~ x_inner,
+    cat == "Continua"       ~ 4 + x_inner,
+    cat == "Fecha / Tiempo" ~ 6 + x_inner
+  ))
+
+ggplot() +
+  # Banda de fondo por categoría
+  geom_rect(
+    data = cat_rects,
+    aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = cat),
+    alpha = 0.12, inherit.aes = FALSE
+  ) +
+  # Etiqueta de categoría
+  geom_text(
+    data = cat_rects |> mutate(xmid = (xmin + xmax) / 2),
+    aes(x = xmid, y = 1.38, label = cat, color = cat),
+    fontface = "bold", size = 3.4, inherit.aes = FALSE
+  ) +
+  # Puntos (tipo)
+  geom_point(
+    data = tipos_df,
+    aes(x = x_global, y = 1, fill = cat),
+    shape = 21, size = 10, color = "white", stroke = 1.2
+  ) +
+  # Etiqueta shortcut dentro del punto
+  geom_text(
+    data = tipos_df,
+    aes(x = x_global, y = 1, label = tipo_r),
+    size = 2.4, color = "white", fontface = "bold"
+  ) +
+  # Clase debajo
+  geom_text(
+    data = tipos_df,
+    aes(x = x_global, y = 0.68, label = clase, color = cat),
+    size = 2.8
+  ) +
+  scale_fill_manual(values  = cat_colors, guide = "none") +
+  scale_color_manual(values = cat_colors, guide = "none") +
+  scale_y_continuous(limits = c(0.5, 1.5)) +
+  scale_x_continuous(limits = c(0.2, 8.8)) +
+  labs(
+    title   = "Tipos de variables en R para visualización",
+    caption = "Basado en ggplot2tor.com · GGPLOT2 Fundamentals+"
+  ) +
+  theme_guide() +
+  theme(
+    axis.text   = element_blank(),
+    axis.title  = element_blank(),
+    axis.ticks  = element_blank(),
+    panel.grid  = element_blank()
+  )
+```
+
+---
+
+# 2 · Geoms básicos
+
+::: {.leyenda-geom}
+<div class="leyenda-item"><span class="badge badge-must"></span> Estética **obligatoria**</div>
+<div class="leyenda-item"><span class="badge badge-can"></span> Estética **opcional**</div>
+<div class="leyenda-item"><span class="badge badge-no"></span> **No aplica**</div>
+:::
+
+## Matriz de estéticas
+
+```{r}
+#| label: fig-basic-matrix
+#| fig-cap: "Estéticas disponibles para los geoms básicos de ggplot2"
+#| fig-height: 5.2
+#| fig-width: 9
+
+basic_geoms <- tribble(
+  ~geom,              ~x,      ~y,      ~fill,   ~alpha,  ~color,  ~width,  ~size,
+  "geom_histogram", "must", "no",   "can",   "can",   "can",   "no",    "can",
+  "geom_col",       "must", "must", "can",   "can",   "can",   "can",   "can",
+  "geom_bar",       "must", "no",   "can",   "can",   "can",   "can",   "can",
+  "geom_line",      "must", "must", "no",    "can",   "can",   "no",    "can",
+  "geom_area",      "must", "must", "can",   "can",   "can",   "no",    "can",
+  "geom_point",     "must", "must", "no",    "can",   "can",   "no",    "can",
+  "geom_boxplot",   "must", "must", "can",   "can",   "can",   "can",   "can"
+)
+
+# Etiquetas para mostrar dentro del tile
+icon_map <- c(must = "●", can = "◎", no = "–")
+
+basic_long <- basic_geoms |>
+  pivot_longer(-geom, names_to = "aes", values_to = "status") |>
+  mutate(
+    icono   = icon_map[status],
+    aes     = factor(aes, levels = c("x","y","fill","alpha","color","width","size")),
+    geom_f  = fct_rev(factor(geom, levels = rev(basic_geoms$geom)))
+  )
+
+# Colores de texto (contraste)
+txt_colors <- c(must = "white", can = PAL_DARK, no = "#B8A990")
+
+ggplot(basic_long, aes(x = aes, y = geom_f)) +
+  geom_tile(
+    aes(fill = status),
+    color = "white", linewidth = 1.2,
+    width = 0.92, height = 0.82
+  ) +
+  geom_text(
+    aes(label = icono, color = status),
+    size = 4, fontface = "bold"
+  ) +
+  scale_fill_manual(
+    values = c(must = PAL_MUST, can = PAL_CAN, no = PAL_NO),
+    labels = c(must = "Obligatoria", can = "Opcional", no = "No aplica"),
+    name   = "Estado de la estética"
+  ) +
+  scale_color_manual(
+    values = txt_colors,
+    guide  = "none"
+  ) +
+  scale_x_discrete(
+    labels = c("x", "y", "fill", "alpha", "color", "width", "size")
+  ) +
+  labs(
+    title   = "Geoms básicos · mapa de estéticas",
+    subtitle = "● obligatoria  ◎ opcional  – no aplica",
+    x = NULL, y = NULL,
+    caption = "Fuente: GGPLOT2 Fundamentals+ · ggplot2tor.com"
+  ) +
+  theme_guide(base_size = 11) +
+  theme(
+    axis.text.x      = element_text(face = "bold", size = 10.5,
+                                     color = PAL_MID, family = "mono"),
+    axis.text.y      = element_text(face = "bold", size = 10,
+                                     color = PAL_DARK, family = "mono"),
+    panel.grid       = element_blank(),
+    legend.position  = "bottom",
+    legend.key.size  = unit(0.85, "lines")
+  )
+```
+
+## Ejemplos con `mtcars`
+
+```{r}
+#| label: fig-basic-examples
+#| fig-cap: "Ejemplos reales de los geoms básicos más utilizados"
+#| fig-height: 8
+#| fig-width: 9
+
+p1 <- ggplot(mtcars, aes(x = factor(cyl), fill = factor(cyl))) +
+  geom_bar(color = "white", linewidth = 0.5) +
+  scale_fill_manual(values = c("#4B6440","#C8960C","#7A6520"), guide = "none") +
+  labs(title = "geom_bar()", subtitle = "aes(x = factor(cyl))",
+       x = "cilindros", y = "conteo")
+
+p2 <- ggplot(
+  mtcars |> group_by(cyl) |> summarise(mean_mpg = mean(mpg)),
+  aes(x = factor(cyl), y = mean_mpg, fill = factor(cyl))
+) +
+  geom_col(color = "white", linewidth = 0.5) +
+  scale_fill_manual(values = c("#4B6440","#C8960C","#7A6520"), guide = "none") +
+  labs(title = "geom_col()", subtitle = "aes(x, y = media_mpg)",
+       x = "cilindros", y = "mpg promedio")
+
+p3 <- ggplot(mtcars, aes(x = wt, y = mpg)) +
+  geom_point(color = PAL_MUST, size = 2.5, alpha = 0.8) +
+  labs(title = "geom_point()", subtitle = "aes(x = wt, y = mpg)",
+       x = "peso", y = "mpg")
+
+p4 <- ggplot(mtcars, aes(x = factor(cyl), y = mpg, fill = factor(cyl))) +
+  geom_boxplot(color = PAL_DARK, linewidth = 0.5, outlier.color = PAL_MID) +
+  scale_fill_manual(values = c("#4B6440","#C8960C","#7A6520"), guide = "none") +
+  labs(title = "geom_boxplot()", subtitle = "aes(x = factor(cyl), y = mpg)",
+       x = "cilindros", y = "mpg")
+
+p5 <- ggplot(mtcars, aes(x = mpg)) +
+  geom_histogram(bins = 12, fill = PAL_CAN, color = "white", linewidth = 0.5) +
+  labs(title = "geom_histogram()", subtitle = "aes(x = mpg)",
+       x = "mpg", y = "conteo")
+
+p6 <- ggplot(
+  mtcars |> arrange(wt),
+  aes(x = wt, y = mpg)
+) +
+  geom_area(fill = PAL_MUST, alpha = 0.35, color = PAL_MUST, linewidth = 0.7) +
+  labs(title = "geom_area()", subtitle = "aes(x = wt, y = mpg)",
+       x = "peso", y = "mpg")
+
+(p1 | p2 | p3) /
+(p4 | p5 | p6) +
+  plot_annotation(
+    title   = "Galería de geoms básicos",
+    caption = "Datos: datasets::mtcars",
+    theme   = theme_guide(base_size = 12) +
+              theme(plot.title = element_text(face = "bold", size = 13))
+  )
+```
+
+---
+
+# 3 · Geoms avanzados
+
+::: {.leyenda-geom}
+<div class="leyenda-item"><span class="badge badge-must"></span> Estética **obligatoria**</div>
+<div class="leyenda-item"><span class="badge badge-can"></span> Estética **opcional**</div>
+<div class="leyenda-item"><span class="badge badge-no"></span> **No aplica**</div>
+:::
+
+## Matriz de estéticas
+
+```{r}
+#| label: fig-adv-matrix
+#| fig-cap: "Estéticas disponibles para los geoms avanzados de ggplot2"
+#| fig-height: 5.8
+#| fig-width: 10
+
+advanced_geoms <- tribble(
+  ~geom,               ~x,      ~y,      ~ymin,   ~ymax,   ~fill,   ~color,  ~alpha,  ~size,   ~width,  ~label,
+  "geom_text",       "must", "must", "no",    "no",    "no",    "can",   "no",    "can",   "no",    "must",
+  "geom_label",      "must", "must", "no",    "no",    "can",   "can",   "no",    "can",   "no",    "must",
+  "geom_jitter",     "must", "must", "no",    "no",    "no",    "can",   "can",   "can",   "no",    "no",
+  "geom_ribbon",     "must", "no",   "must",  "must",  "can",   "can",   "can",   "no",    "no",    "no",
+  "geom_errorbar",   "must", "no",   "must",  "must",  "no",    "can",   "no",    "can",   "can",   "no",
+  "geom_linerange",  "must", "no",   "must",  "must",  "no",    "can",   "no",    "can",   "no",    "no",
+  "geom_pointrange", "must", "must", "must",  "must",  "no",    "can",   "no",    "can",   "no",    "no"
+)
+
+adv_long <- advanced_geoms |>
+  pivot_longer(-geom, names_to = "aes", values_to = "status") |>
+  mutate(
+    icono  = icon_map[status],
+    aes    = factor(aes, levels = c("x","y","ymin","ymax",
+                                    "fill","color","alpha","size","width","label")),
+    geom_f = fct_rev(factor(geom, levels = rev(advanced_geoms$geom)))
+  )
+
+ggplot(adv_long, aes(x = aes, y = geom_f)) +
+  geom_tile(
+    aes(fill = status),
+    color = "white", linewidth = 1.2,
+    width = 0.92, height = 0.82
+  ) +
+  geom_text(
+    aes(label = icono, color = status),
+    size = 3.8, fontface = "bold"
+  ) +
+  scale_fill_manual(
+    values = c(must = PAL_MUST, can = PAL_CAN, no = PAL_NO),
+    labels = c(must = "Obligatoria", can = "Opcional", no = "No aplica"),
+    name   = "Estado de la estética"
+  ) +
+  scale_color_manual(values = txt_colors, guide = "none") +
+  labs(
+    title    = "Geoms avanzados · mapa de estéticas",
+    subtitle = "● obligatoria  ◎ opcional  – no aplica",
+    x = NULL, y = NULL,
+    caption  = "Fuente: GGPLOT2 Fundamentals+ · ggplot2tor.com"
+  ) +
+  theme_guide(base_size = 11) +
+  theme(
+    axis.text.x     = element_text(face = "bold", size = 10.5,
+                                    color = PAL_MID, family = "mono"),
+    axis.text.y     = element_text(face = "bold", size = 10,
+                                    color = PAL_DARK, family = "mono"),
+    panel.grid      = element_blank(),
+    legend.position = "bottom",
+    legend.key.size = unit(0.85, "lines")
+  )
+```
+
+## Ejemplos reales
+
+```{r}
+#| label: fig-adv-examples
+#| fig-cap: "Ejemplos de los geoms avanzados más comunes"
+#| fig-height: 8
+#| fig-width: 9
+
+set.seed(123)
+
+# geom_text
+labels_df <- mtcars |>
+  rownames_to_column("car") |>
+  slice_max(mpg, n = 6)
+
+pa <- ggplot(labels_df, aes(x = wt, y = mpg, label = car)) +
+  geom_point(color = PAL_MUST, size = 2, alpha = 0.7) +
+  geom_text(size = 2.8, color = PAL_DARK, nudge_y = 0.5,
+            hjust = 0, check_overlap = TRUE) +
+  labs(title = "geom_text()", subtitle = "label = car",
+       x = "peso", y = "mpg")
+
+# geom_label
+pb <- ggplot(labels_df |> slice_max(mpg, n = 4),
+             aes(x = wt, y = mpg, label = car)) +
+  geom_point(color = PAL_MUST, size = 2.5) +
+  geom_label(fill = PAL_CAN, color = "white", size = 2.5,
+             fontface = "bold", nudge_y = 0.6) +
+  labs(title = "geom_label()", subtitle = "label con caja",
+       x = "peso", y = "mpg")
+
+# geom_jitter
+pc <- ggplot(mtcars, aes(x = factor(cyl), y = mpg,
+                          color = factor(cyl))) +
+  geom_jitter(width = 0.18, height = 0, size = 2.5, alpha = 0.8) +
+  scale_color_manual(values = c("#4B6440","#C8960C","#7A6520"),
+                     guide = "none") +
+  labs(title = "geom_jitter()", subtitle = "width = 0.18",
+       x = "cilindros", y = "mpg")
+
+# geom_pointrange
+summary_df <- mtcars |>
+  group_by(cyl) |>
+  summarise(
+    media = mean(mpg),
+    ymin  = media - sd(mpg),
+    ymax  = media + sd(mpg),
+    .groups = "drop"
+  )
+
+pd <- ggplot(summary_df, aes(x = factor(cyl), y = media,
+                               ymin = ymin, ymax = ymax)) +
+  geom_pointrange(color = PAL_MUST, linewidth = 0.9, size = 0.9) +
+  labs(title = "geom_pointrange()", subtitle = "media ± SD",
+       x = "cilindros", y = "mpg promedio")
+
+# geom_errorbar
+pe <- ggplot(summary_df, aes(x = factor(cyl), y = media,
+                               ymin = ymin, ymax = ymax)) +
+  geom_col(fill = PAL_CAN, alpha = 0.7, width = 0.6) +
+  geom_errorbar(color = PAL_DARK, width = 0.25, linewidth = 0.9) +
+  labs(title = "geom_errorbar()", subtitle = "col + barras de error",
+       x = "cilindros", y = "mpg promedio")
+
+# geom_ribbon
+series_df <- tibble(
+  x = 1:20,
+  y = cumsum(rnorm(20, 0.3, 0.8))
+) |>
+  mutate(
+    ymin = y - 0.8,
+    ymax = y + 0.8
+  )
+
+pf <- ggplot(series_df, aes(x = x)) +
+  geom_ribbon(aes(ymin = ymin, ymax = ymax),
+              fill = PAL_MUST, alpha = 0.25) +
+  geom_line(aes(y = y), color = PAL_MUST, linewidth = 0.9) +
+  labs(title = "geom_ribbon()", subtitle = "línea + banda de incertidumbre",
+       x = "x", y = "y")
+
+(pa | pb | pc) /
+(pd | pe | pf) +
+  plot_annotation(
+    title   = "Galería de geoms avanzados",
+    caption = "Datos: datasets::mtcars, datos simulados",
+    theme   = theme_guide(base_size = 12) +
+              theme(plot.title = element_text(face = "bold", size = 13))
+  )
+```
+
+---
+
+# 4 · Referencia rápida: geom → tipo de variable
+
+```{r}
+#| label: tbl-ref
+#| tbl-cap: "Guía rápida: tipos de variable recomendados por estética y geom"
+
+tibble(
+  Geom        = c("geom_bar / geom_col", "geom_histogram",
+                  "geom_boxplot", "geom_point",
+                  "geom_line / geom_area", "geom_text / geom_label",
+                  "geom_ribbon", "geom_pointrange / geom_errorbar"),
+  `x (mín.)`  = c("discreta", "continua", "discreta", "continua",
+                  "continua / fecha", "continua", "continua / fecha",
+                  "discreta / continua"),
+  `y`         = c("– (count)", "– (count)", "continua", "continua",
+                  "continua", "continua", "–",  "continua (media)"),
+  `fill/color`= c("discreta", "continua", "discreta", "discreta/continua",
+                  "discreta", "discreta", "discreta", "discreta"),
+  `Nota`      = c("fill → discreta para comparar grupos",
+                  "bins = número de barras",
+                  "x discreta, y continua típicamente",
+                  "color/size → continua para gradiente",
+                  "fecha en x → time series",
+                  "label → character",
+                  "ymin & ymax obligatorios",
+                  "ymin & ymax = límites del IC")
+) |>
+  knitr::kable(align = c("l","l","l","l","l"))
+```
+
+---
+
+# 5 · Cómo extender esta guía
+
+::: {.callout-note}
+## Próximos pasos sugeridos
+
+- **`facet_wrap()` / `facet_grid()`**: descomponer por variables discretas.  
+- **`geom_smooth()`**: ajustar tendencias con `lm`, `loess` o `gam`.  
+- **`scale_*_*()`**: personalizar paletas, rangos y etiquetas de ejes.  
+- **`theme_*()`**: aplicar temas predefinidos o construir el tuyo propio.  
+- **`ggrepel::geom_text_repel()`**: etiquetas sin solapamientos.  
+- **`gghighlight`**: resaltar subconjuntos de datos.
+:::
+
+---
+
+# 6 · Sesión reproducible
+
+```{r}
+sessionInfo()
+```

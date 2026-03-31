@@ -1,0 +1,5423 @@
+---
+title: "Gráficos con ggplot2"
+subtitle: "Guía práctica para pasar de datos a visualizaciones elegantes en R"
+author: "Paul Efren Santos Andrade"
+date: today
+lang: es
+format:
+  html:
+    toc: true
+    toc-title: "Ruta de aprendizaje"
+    toc-depth: 3
+    toc-location: left
+    embed-resources: true
+    code-fold: true
+    code-summary: "Mostrar código"
+    highlight-style: github
+    theme: cosmo
+  typst:
+    toc: true
+    toc-depth: 3
+    papersize: a4
+    keep-typ: true
+    margin:
+      x: 1.45cm
+      y: 1.55cm
+    page-numbering: "1 / 1"
+    fig-format: svg
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{=html}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:wght@300;400;600;700&family=Source+Code+Pro:wght@400;600&display=swap');
+
+:root {
+  --c-bg:      #FBF7F0;
+  --c-surface: #F0E6D5;
+  --c-line:    #D6C7AF;
+  --c-accent:  #B88228;
+  --c-deep:    #1F1A13;
+  --c-mid:     #6F5C36;
+  --c-green:   #445E46;
+  --c-muted:   #7F7360;
+}
+
+body {
+  font-family: 'Source Sans 3', sans-serif;
+  background: linear-gradient(180deg, #FCF8F2 0%, #FBF7F0 28%, #F8F3EA 100%);
+  color: var(--c-deep);
+  line-height: 1.7;
+}
+
+h1.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.7rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: var(--c-deep);
+  border-bottom: 4px solid var(--c-accent);
+  padding-bottom: 0.35rem;
+}
+
+.subtitle {
+  color: var(--c-muted);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+h2, h3 {
+  color: var(--c-deep);
+}
+
+h2 {
+  font-family: 'Playfair Display', serif;
+  border-bottom: 2px solid var(--c-line);
+  padding-bottom: 0.2rem;
+  margin-top: 2.3rem;
+}
+
+h3 {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 1rem;
+  color: var(--c-mid);
+}
+
+#TOC {
+  background: rgba(240, 230, 213, 0.85);
+  border-right: 2px solid var(--c-line);
+  padding: 1rem;
+  font-size: 0.92rem;
+  backdrop-filter: blur(6px);
+}
+
+#TOC a {
+  color: var(--c-mid);
+  text-decoration: none;
+}
+
+#TOC a:hover {
+  color: var(--c-accent);
+}
+
+.hero-note {
+  margin: 1rem 0 1.6rem 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--c-line);
+  border-left: 6px solid var(--c-accent);
+  background: linear-gradient(135deg, rgba(240,230,213,0.95), rgba(251,247,240,0.9));
+  border-radius: 8px;
+}
+
+.hero-note strong {
+  color: var(--c-green);
+}
+
+code {
+  font-family: 'Source Code Pro', monospace;
+  background: #F2EBDF;
+  color: var(--c-green);
+  border: 1px solid var(--c-line);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.callout {
+  border-radius: 8px;
+}
+
+.callout-note,
+.callout-tip,
+.callout-important {
+  border-left-width: 6px !important;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+}
+
+thead th {
+  background: var(--c-green);
+  color: #FBF7F0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.78rem;
+  padding: 10px 12px;
+}
+
+tbody td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--c-line);
+}
+
+tbody tr:nth-child(even) td {
+  background: rgba(240, 230, 213, 0.45);
+}
+</style>
+```
+
+::: hero-note
+<strong>Idea central.</strong> En <code>ggplot2</code> los gráficos elegantes no aparecen al final del proceso: se diseñan desde la elección de la pregunta, el tipo de variable, el geom y la estrategia de anotación. Esta guía organiza ese proceso como una secuencia reproducible.
+:::
+
+La visualización no empieza cuando eliges colores ni cuando ajustas el tema final. Empieza antes: cuando decides qué relación quieres mostrar, qué variable sostiene la lectura principal y qué forma gráfica reduce mejor el trabajo interpretativo. Por eso esta guía ordena el aprendizaje como un proceso: leer los datos, reconocer la estructura, elegir una primera opción visual defendible y recién después refinar estilo, composición y narrativa.
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+library(patchwork)
+library(scales)
+
+PAL_MUST   <- "#445E46"
+PAL_CAN    <- "#B88228"
+PAL_NO     <- "#D4C9B0"
+PAL_BG     <- "#FBF7F0"
+PAL_ACCENT <- "#B88228"
+PAL_DARK   <- "#1F1A13"
+PAL_MID    <- "#6F5C36"
+PAL_GRID   <- "#E3D8C8"
+PAL_TEXT   <- "#2C2416"
+
+theme_guide <- function(base_size = 11) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      plot.background   = element_rect(fill = PAL_BG, color = NA),
+      panel.background  = element_rect(fill = PAL_BG, color = NA),
+      panel.grid.major  = element_line(color = PAL_GRID, linewidth = 0.4),
+      panel.grid.minor  = element_blank(),
+      plot.title        = element_text(
+        family = "serif", face = "bold",
+        size = base_size + 2, color = PAL_DARK,
+        margin = margin(b = 5)
+      ),
+      plot.subtitle     = element_text(
+        size = base_size - 0.8, color = PAL_MID,
+        margin = margin(b = 8)
+      ),
+      plot.caption      = element_text(
+        size = base_size - 2.2, color = PAL_MID, hjust = 1,
+        margin = margin(t = 8)
+      ),
+      axis.title        = element_text(
+        size = base_size - 0.4, color = PAL_MID, face = "bold"
+      ),
+      axis.text         = element_text(size = base_size - 1, color = PAL_TEXT),
+      axis.ticks        = element_line(color = PAL_GRID),
+      legend.position   = "bottom",
+      legend.title      = element_text(size = base_size - 0.8, face = "bold", color = PAL_TEXT),
+      legend.text       = element_text(size = base_size - 1.3, color = PAL_TEXT),
+      legend.key        = element_rect(fill = PAL_BG, color = NA),
+      legend.background = element_rect(fill = PAL_BG, color = NA),
+      strip.background  = element_rect(fill = "#ECE2D3", color = NA),
+      strip.text        = element_text(face = "bold", color = PAL_DARK),
+      plot.margin       = margin(14, 14, 14, 14)
+    )
+}
+
+theme_set(theme_guide())
+
+cat_palette <- c(
+  "#445E46", "#B88228", "#8393C6",
+  "#C96C5B", "#8A7DB8", "#6C9D8F",
+  "#D1A053", "#B95F7A"
+)
+
+circle_polygon <- function(x0, y0, r, n = 100) {
+  theta <- seq(0, 2 * pi, length.out = n)
+  tibble(
+    x = x0 + r * cos(theta),
+    y = y0 + r * sin(theta)
+  )
+}
+
+simple_treemap_layout <- function(df, value_col = "value",
+                                  x = 0, y = 0, width = 1, height = 1,
+                                  vertical = TRUE) {
+  df <- df |>
+    arrange(desc(.data[[value_col]]))
+
+  recurse <- function(data, x, y, width, height, vertical) {
+    if (nrow(data) == 1) {
+      out <- data
+      out$xmin <- x
+      out$xmax <- x + width
+      out$ymin <- y
+      out$ymax <- y + height
+      return(out)
+    }
+
+    vals <- data[[value_col]]
+    idx <- which.min(abs(cumsum(vals) - sum(vals) / 2))
+    if (idx >= nrow(data)) {
+      idx <- nrow(data) - 1
+    }
+
+    g1 <- data[1:idx, , drop = FALSE]
+    g2 <- data[(idx + 1):nrow(data), , drop = FALSE]
+    share1 <- sum(g1[[value_col]]) / sum(vals)
+
+    if (vertical) {
+      bind_rows(
+        recurse(g1, x, y, width * share1, height, !vertical),
+        recurse(g2, x + width * share1, y, width * (1 - share1), height, !vertical)
+      )
+    } else {
+      bind_rows(
+        recurse(g1, x, y, width, height * share1, !vertical),
+        recurse(g2, x, y + height * share1, width, height * (1 - share1), !vertical)
+      )
+    }
+  }
+
+  recurse(df, x, y, width, height, vertical)
+}
+
+make_flow_ribbon <- function(x0, x1, ymin0, ymax0, ymin1, ymax1, n = 80) {
+  xs <- seq(x0, x1, length.out = n)
+  t <- seq(0, 1, length.out = n)
+  ease <- 3 * t^2 - 2 * t^3
+
+  y_top <- ymax0 + (ymax1 - ymax0) * ease
+  y_bottom <- ymin0 + (ymin1 - ymin0) * ease
+
+  tibble(
+    x = c(xs, rev(xs)),
+    y = c(y_top, rev(y_bottom))
+  )
+}
+
+quad_bezier <- function(x0, y0, xc, yc, x1, y1, n = 80) {
+  t <- seq(0, 1, length.out = n)
+  tibble(
+    x = (1 - t)^2 * x0 + 2 * (1 - t) * t * xc + t^2 * x1,
+    y = (1 - t)^2 * y0 + 2 * (1 - t) * t * yc + t^2 * y1
+  )
+}
+```
+
+# 1 · Leer los datos antes de dibujar
+
+La idea es simple: antes de elegir un `geom`, conviene identificar si las variables son discretas, continuas, ordinales o temporales.
+
+::: callout-note
+## Regla operativa
+
+Ejecuta `glimpse(tu_dataframe)` y nombra el rol visual de cada variable antes de escribir `ggplot()`: posición, color, tamaño, faceta o etiqueta.
+:::
+
+## Tabla de referencia
+
+```{r}
+#| label: tbl-tipos-guia
+#| echo: false
+#| tbl-cap: "Tipos de variables útiles para visualización en ggplot2"
+
+tibble(
+  `Familia` = c(
+    "Nominal",
+    "Binaria",
+    "Ordinal",
+    "Continua",
+    "Conteo / entero"
+  ),
+  `Clases R frecuentes` = c(
+    "character, factor",
+    "logical",
+    "ordered factor",
+    "double / numeric",
+    "integer"
+  ),
+  `Ejemplo` = c(
+    "país, especie, grupo",
+    "sí / no",
+    "bajo / medio / alto",
+    "peso, ingreso",
+    "conteo, edad"
+  ),
+  `Roles visuales frecuentes` = c(
+    "x, fill, color, facet",
+    "fill, color, facet",
+    "x, fill, color",
+    "x, y, size, alpha",
+    "x, y, label"
+  ),
+  `Empieza con` = c(
+    "bar, boxplot, violin",
+    "bar",
+    "bar, line",
+    "point, line, histogram",
+    "col, text"
+  )
+) |>
+  knitr::kable(align = c("l", "l", "l", "l", "l"))
+```
+
+```{r}
+#| label: tbl-tipos-tiempo
+#| echo: false
+#| tbl-cap: "Variables temporales y su uso visual más común"
+
+tibble(
+  `Familia` = c("Fecha", "Fecha-hora"),
+  `Clase R` = c("Date", "POSIXct / POSIXlt"),
+  `Ejemplo` = c("2026-03-29", "2026-03-29 15:30"),
+  `Suele ir en` = c("x", "x"),
+  `Empieza con` = c("line, area", "line")
+) |>
+  knitr::kable(align = c("l", "l", "l", "l", "l"))
+```
+
+## Mapa visual de categorías
+
+```{r}
+#| label: fig-tipos-guia
+#| echo: false
+#| fig-cap: "Clasificación de tipos de variables por categoría estadística"
+#| fig-width: 8.2
+#| fig-height: 4
+
+tipos_df <- tibble(
+  tipo_r = c("<chr>", "<fct>", "<lgl>", "<ord>", "<dbl>", "<int>", "<date>", "<dttm>"),
+  clase = c(
+    "Nominal", "Nominal", "Binaria", "Ordinal",
+    "Continua", "Conteo", "Fecha", "Fecha-hora"
+  ),
+  cat = c(
+    "Discreta", "Discreta", "Discreta", "Discreta",
+    "Continua", "Continua", "Fecha / Tiempo", "Fecha / Tiempo"
+  ),
+  x_global = c(1, 2, 3, 4, 5.2, 6.2, 7.4, 8.4)
+)
+
+cat_rects <- tibble(
+  cat = c("Discreta", "Continua", "Fecha / Tiempo"),
+  xmin = c(0.5, 4.5, 6.9),
+  xmax = c(4.5, 6.9, 8.9),
+  ymin = 0.56,
+  ymax = 1.32
+)
+
+cat_colors <- c(
+  "Discreta" = PAL_MUST,
+  "Continua" = PAL_CAN,
+  "Fecha / Tiempo" = PAL_MID
+)
+
+ggplot() +
+  geom_rect(
+    data = cat_rects,
+    aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = cat),
+    alpha = 0.12,
+    inherit.aes = FALSE
+  ) +
+  geom_text(
+    data = cat_rects |> mutate(xmid = (xmin + xmax) / 2),
+    aes(x = xmid, y = 1.39, label = cat, color = cat),
+    fontface = "bold",
+    size = 3.5,
+    inherit.aes = FALSE
+  ) +
+  geom_point(
+    data = tipos_df,
+    aes(x = x_global, y = 1, fill = cat),
+    shape = 21,
+    size = 10,
+    color = "white",
+    stroke = 1.15
+  ) +
+  geom_text(
+    data = tipos_df,
+    aes(x = x_global, y = 1, label = tipo_r),
+    size = 2.45,
+    color = "white",
+    fontface = "bold"
+  ) +
+  geom_text(
+    data = tipos_df,
+    aes(x = x_global, y = 0.68, label = clase, color = cat),
+    size = 2.8
+  ) +
+  scale_fill_manual(values = cat_colors, guide = "none") +
+  scale_color_manual(values = cat_colors, guide = "none") +
+  scale_y_continuous(limits = c(0.5, 1.5)) +
+  scale_x_continuous(limits = c(0.2, 8.8)) +
+  labs(
+    title = "Tipos de variables en R para visualización",
+    subtitle = "La elección del gráfico empieza por el tipo de variable",
+    caption = "Adaptado del documento base del proyecto"
+  ) +
+  theme_guide() +
+  theme(
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank()
+  )
+```
+
+# 2 · El proceso de diseño con ggplot2
+
+La gramática de los gráficos ayuda a construir, pero el proceso de diseño decide si el resultado será claro. En práctica, conviene recorrer siempre la misma secuencia.
+
+```{r}
+#| label: fig-flujo-ggplot2
+#| echo: false
+#| fig-cap: "Secuencia recomendada para construir visualizaciones en ggplot2"
+#| fig-width: 7.2
+#| fig-height: 9.4
+
+workflow_df <- tibble(
+  paso = c("Pregunta", "Datos", "Variables", "Geom", "Escalas", "Tema", "Narrativa"),
+  numero = 1:7,
+  x = c(1.28, 2.02, 1.28, 2.02, 1.28, 2.02, 1.28),
+  y = c(7.2, 6.12, 5.04, 3.96, 2.88, 1.8, 0.72),
+  titulo = c(
+    "Pregunta", "Datos", "Variables", "Geom", "Escalas", "Tema", "Narrativa"
+  ),
+  detalle = c(
+    "Qué quieres revelar",
+    "Qué observas y limpias",
+    "Qué va a x, y, color",
+    "Qué marca visual usarás",
+    "Cómo se leerá",
+    "Qué ruido eliminas",
+    "Qué foco y etiquetas añades"
+  ),
+  fill = c("#EADFCB", "#EFE6DA", "#E7DED1", "#E8D6B6", "#E5D1AB", "#E8DDD0", "#E3D4C2")
+)
+
+workflow_segments <- tibble(
+  x = 1.65,
+  xend = 1.65,
+  y = workflow_df$y[-nrow(workflow_df)] - 0.42,
+  yend = workflow_df$y[-1] + 0.42
+)
+
+workflow_connectors <- workflow_df |>
+  mutate(xend = if_else(x < 1.65, x + 0.24, x - 0.24))
+
+ggplot() +
+  annotate(
+    "rect",
+    xmin = 0.72, xmax = 2.58,
+    ymin = 0.15, ymax = 7.72,
+    fill = alpha("#F6F0E6", 0.55),
+    color = NA
+  ) +
+  geom_segment(
+    data = workflow_segments,
+    aes(x = x, xend = xend, y = y, yend = yend),
+    linewidth = 1.15,
+    color = PAL_GRID,
+    arrow = grid::arrow(length = grid::unit(0.1, "in"), type = "closed")
+  ) +
+  geom_segment(
+    data = workflow_connectors,
+    aes(x = 1.65, xend = xend, y = y, yend = y),
+    linewidth = 0.8,
+    color = alpha(PAL_MID, 0.55)
+  ) +
+  geom_tile(
+    data = workflow_df,
+    aes(x = x + 0.04, y = y - 0.05),
+    width = 0.9,
+    height = 0.74,
+    fill = alpha("#C8BCA8", 0.18),
+    color = NA
+  ) +
+  geom_tile(
+    data = workflow_df,
+    aes(x = x, y = y, fill = fill),
+    width = 0.9,
+    height = 0.74,
+    color = alpha("white", 0.7),
+    linewidth = 0.45
+  ) +
+  geom_point(
+    data = workflow_df,
+    aes(x = 1.65, y = y),
+    shape = 21,
+    size = 8.2,
+    stroke = 1.2,
+    fill = PAL_BG,
+    color = PAL_MUST
+  ) +
+  geom_text(
+    data = workflow_df,
+    aes(x = 1.65, y = y, label = numero),
+    color = PAL_MUST,
+    size = 3.2,
+    fontface = "bold"
+  ) +
+  geom_text(
+    data = workflow_df,
+    aes(x = x, y = y + 0.12, label = titulo),
+    color = PAL_DARK,
+    size = 3.5,
+    fontface = "bold"
+  ) +
+  geom_text(
+    data = workflow_df,
+    aes(x = x, y = y - 0.15, label = detalle),
+    color = PAL_MID,
+    size = 2.95,
+    lineheight = 1.02
+  ) +
+  scale_fill_identity() +
+  coord_cartesian(xlim = c(0.72, 2.58), ylim = c(0.15, 7.72), clip = "off") +
+  labs(
+    title = "Proceso recomendado",
+    subtitle = "Resuelve primero la lógica del gráfico y deja el acabado para el final",
+    caption = "Secuencia inspirada en la gramática de ggplot2 y en guías de diseño visual"
+  ) +
+  theme_guide(base_size = 12) +
+  theme(
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = margin(16, 12, 16, 12)
+  )
+```
+
+Estas preguntas obligan a pensar antes de decorar:
+
+1.  ¿La tarea es comparar, describir una distribución, mostrar cambio, relación o composición?
+2.  ¿Qué variable define la posición horizontal y cuál la vertical?
+3.  ¿Hay grupos que merecen color o facetas?
+4.  ¿La comparación exige ordenar categorías?
+5.  ¿Qué parte de la historia debe quedar etiquetada de forma explícita?
+6.  ¿Qué elementos de fondo pueden eliminarse sin perder legibilidad?
+7.  ¿El gráfico puede entenderse sin explicación verbal adicional?
+
+# 3 · La gramática mínima
+
+El núcleo de `ggplot2` se puede leer como:
+
+``` r
+datos |>
+  ggplot(aes(x = ..., y = ..., color = ..., fill = ...)) +
+  geom_*() +
+  scale_*_*() +
+  labs(
+    title = "...",
+    subtitle = "...",
+    x = "...",
+    y = "...",
+    caption = "Fuente: ..."
+  ) +
+  theme_*()
+```
+
+La lógica es acumulativa:
+
+-   `data`: la tabla que alimenta la visualización.
+-   `aes()`: el mapeo de variables a atributos visuales.
+-   `geom_*()`: la marca gráfica principal.
+-   `stat_*()` o capas derivadas: resumen, ajuste o suavizado.
+-   `scale_*_*()`: cómo se convierten los datos en posición, color, tamaño y guías.
+-   `labs()`: el texto que orienta la lectura.
+-   `theme()`: el acabado visual.
+
+## Ejemplo de construcción por capas
+
+```{r}
+#| label: fig-build-by-layers
+#| fig-cap: "Construcción gradual de un gráfico en ggplot2"
+#| fig-width: 10
+#| fig-height: 10
+
+scatter_df <- mpg |>
+  filter(class %in% c("compact", "midsize", "pickup", "suv"))
+
+drv_cols <- c("4" = PAL_MUST, "f" = PAL_CAN, "r" = PAL_MID)
+
+p1 <- ggplot(scatter_df, aes(displ, hwy)) +
+  geom_point(color = PAL_MID, size = 2.4, alpha = 0.72) +
+  labs(
+    title = "1. Posición",
+    subtitle = "Primero se define la relación x-y",
+    x = "displ",
+    y = "hwy"
+  )
+
+p2 <- ggplot(scatter_df, aes(displ, hwy, color = drv)) +
+  geom_point(size = 2.4, alpha = 0.8) +
+  labs(
+    title = "2. Mapeo",
+    subtitle = "color añade estructura por grupo",
+    x = "displ",
+    y = "hwy",
+    color = "drv"
+  )
+
+p3 <- ggplot(scatter_df, aes(displ, hwy, color = drv)) +
+  geom_point(size = 2.4, alpha = 0.78) +
+  geom_smooth(se = FALSE, linewidth = 0.9) +
+  labs(
+    title = "3. Capa estadística",
+    subtitle = "La tendencia refuerza la lectura",
+    x = "displ",
+    y = "hwy",
+    color = "drv"
+  )
+
+p4 <- ggplot(scatter_df, aes(displ, hwy, color = drv)) +
+  geom_point(size = 2.6, alpha = 0.82) +
+  geom_smooth(se = FALSE, linewidth = 1) +
+  scale_color_manual(
+    values = drv_cols,
+    labels = c("4" = "Tracción 4x4", "f" = "Delantera", "r" = "Trasera")
+  ) +
+  labs(
+    title = "4. Refinamiento",
+    subtitle = "Escala, texto y tema convierten el gráfico en mensaje",
+    x = "Cilindrada (litros)",
+    y = "Rendimiento en carretera (mpg)",
+    color = "Tracción"
+  ) +
+  theme(legend.position = "top")
+
+(p1 | p2) / (p3 | p4) +
+  plot_annotation(
+    title = "Construir un gráfico por capas",
+    caption = "Datos: ggplot2::mpg"
+  )
+```
+
+::: callout-tip
+## Estrategia recomendada
+
+Construye el gráfico en este orden: posición, agrupación, resumen, escala y solo al final estilo. Si lo haces al revés, vas a pulir un gráfico cuya lógica aún no está resuelta.
+:::
+
+# 4 · Elegir el gráfico adecuado
+
+El tipo de gráfico debe responder a la pregunta analítica, no a una preferencia estética. La siguiente tabla resume elecciones robustas para empezar.
+
+```{r}
+#| label: tbl-eleccion-grafico
+#| echo: false
+#| tbl-cap: "Atajos útiles para elegir un gráfico con ggplot2"
+
+tibble(
+  `Lectura buscada` = c(
+    "Comparar categorías",
+    "Ver una distribución",
+    "Relacionar dos continuas",
+    "Seguir una serie temporal",
+    "Comunicar composición",
+    "Mostrar incertidumbre",
+    "Comparar patrones por grupo"
+  ),
+  `Variables mínimas` = c(
+    "x discreta + y continua",
+    "1 continua",
+    "x continua + y continua",
+    "fecha + continua",
+    "discreta + proporción",
+    "x + y + ymin/ymax",
+    "una o más + grupo"
+  ),
+  `Empieza con` = c(
+    "`geom_col()` o `geom_bar()`",
+    "`geom_histogram()`, `geom_density()` o `geom_boxplot()`",
+    "`geom_point()` + `geom_smooth()`",
+    "`geom_line()` o `geom_area()`",
+    "`geom_col(position = 'fill')` o barras apiladas",
+    "`geom_ribbon()`, `geom_pointrange()` o `geom_errorbar()`",
+    "`facet_wrap()` o `facet_grid()`"
+  ),
+  `Cuidado clave` = c(
+    "Ordena las categorías antes de comparar",
+    "Controla `bins` o ancho de banda",
+    "Reduce sobrecarga con `alpha`, `jitter` o filtro",
+    "No rompas el eje temporal sin motivo",
+    "La comparación fina de proporciones cuesta más",
+    "Explica con claridad qué significan los límites",
+    "No repitas ruido visual en cada faceta"
+  )
+) |>
+  knitr::kable(align = c("l", "l", "l", "l"))
+```
+
+::: callout-important
+## Advertencia útil
+
+Los gráficos de torta rara vez son la mejor primera opción para comparar magnitudes. Cuando el objetivo es comparación precisa, una barra ordenada casi siempre gana.
+:::
+
+# 5 · Cuatro patrones esenciales
+
+En la práctica, gran parte del trabajo con `ggplot2` puede resumirse en unos pocos patrones. Aprenderlos bien da más valor que memorizar una larga lista de geoms.
+
+```{r}
+#| label: fig-patrones-esenciales
+#| fig-cap: "Cuatro patrones recurrentes para construir visualizaciones claras con ggplot2"
+#| fig-width: 11
+#| fig-height: 8.5
+
+class_summary <- mpg |>
+  group_by(class) |>
+  summarise(hwy = mean(hwy), .groups = "drop") |>
+  mutate(class = fct_reorder(class, hwy))
+
+class_cols <- setNames(
+  grDevices::colorRampPalette(c("#E9DCC1", PAL_CAN, PAL_MUST))(nrow(class_summary)),
+  class_summary$class
+)
+
+p_amount <- ggplot(class_summary, aes(hwy, class, fill = class)) +
+  geom_col(width = 0.72, show.legend = FALSE) +
+  geom_text(
+    aes(label = number(hwy, accuracy = 0.1)),
+    hjust = -0.12,
+    size = 3.2,
+    color = PAL_DARK,
+    fontface = "bold"
+  ) +
+  scale_fill_manual(values = class_cols) +
+  expand_limits(x = max(class_summary$hwy) + 2.4) +
+  labs(
+    title = "Comparar cantidades",
+    subtitle = "Ordenar y etiquetar acelera la lectura",
+    x = "Promedio de hwy",
+    y = NULL
+  ) +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.y = element_text(face = "bold")
+  )
+
+median_hwy <- median(mpg$hwy)
+
+p_dist <- ggplot(mpg, aes(hwy)) +
+  geom_histogram(
+    bins = 15,
+    fill = PAL_CAN,
+    color = "white",
+    linewidth = 0.45
+  ) +
+  geom_vline(xintercept = median_hwy, color = PAL_DARK, linewidth = 0.85, linetype = "22") +
+  annotate(
+    "text",
+    x = median_hwy + 2,
+    y = 18,
+    label = "mediana",
+    color = PAL_DARK,
+    size = 3.2,
+    fontface = "bold"
+  ) +
+  labs(
+    title = "Ver distribuciones",
+    subtitle = "Usa referencias simples para orientar el ojo",
+    x = "hwy",
+    y = "Conteo"
+  )
+
+p_assoc <- ggplot(mpg, aes(displ, hwy, color = drv)) +
+  geom_point(size = 2.2, alpha = 0.72) +
+  geom_smooth(se = FALSE, linewidth = 0.95) +
+  scale_color_manual(values = drv_cols, labels = c("4" = "4x4", "f" = "Delantera", "r" = "Trasera")) +
+  labs(
+    title = "Mostrar asociación",
+    subtitle = "Puntos para los datos, línea para la tendencia",
+    x = "Cilindrada",
+    y = "hwy",
+    color = "Tracción"
+  ) +
+  theme(legend.position = "top")
+
+time_df <- economics |>
+  filter(date >= as.Date("2000-01-01")) |>
+  transmute(
+    date,
+    unemploy_k = unemploy / 1000,
+    low = unemploy_k * 0.93,
+    high = unemploy_k * 1.07
+  )
+
+p_time <- ggplot(time_df, aes(date, unemploy_k)) +
+  geom_ribbon(aes(ymin = low, ymax = high), fill = PAL_CAN, alpha = 0.22) +
+  geom_line(color = PAL_MUST, linewidth = 0.95) +
+  labs(
+    title = "Seguir cambio en el tiempo",
+    subtitle = "Línea para trayectoria, ribbon para rango",
+    x = NULL,
+    y = "Miles de desempleados"
+  )
+
+(p_amount | p_dist) / (p_assoc | p_time) +
+  plot_annotation(
+    title = "Patrones que conviene dominar primero",
+    caption = "Datos: ggplot2::mpg y ggplot2::economics"
+  )
+```
+
+## Qué aprender de estos patrones
+
+-   Las barras funcionan mejor cuando las categorías están ordenadas.
+-   Las distribuciones dependen mucho de parámetros aparentemente menores como `bins`.
+-   Las relaciones entre variables se benefician de transparencia (`alpha`) y de líneas de tendencia con criterio.
+-   Las series temporales ganan claridad cuando el eje horizontal respeta el tiempo y la anotación no compite con la línea.
+
+# 6 · De funcional a elegante
+
+La elegancia no es ornamento: es reducción de fricción cognitiva. Un gráfico elegante ordena la información, elimina ruido y deja claro dónde mirar.
+
+```{r}
+#| label: fig-correcto-vs-elegante
+#| fig-cap: "Mismo dato, dos decisiones de diseño distintas"
+#| fig-width: 11
+#| fig-height: 4.8
+
+city_summary <- mpg |>
+  group_by(class) |>
+  summarise(cty = mean(cty), .groups = "drop")
+
+bad_plot <- ggplot(city_summary, aes(class, cty, fill = class)) +
+  geom_col() +
+  labs(
+    title = "Versión funcional",
+    subtitle = "El dato está, pero la lectura es lenta",
+    x = NULL,
+    y = "cty"
+  )
+
+city_refined <- city_summary |>
+  mutate(class = fct_reorder(class, cty))
+
+city_cols <- setNames(
+  grDevices::colorRampPalette(c("#EFE3C8", PAL_CAN, PAL_MUST))(nrow(city_refined)),
+  city_refined$class
+)
+
+good_plot <- ggplot(city_refined, aes(cty, class, fill = class)) +
+  geom_col(width = 0.72, show.legend = FALSE) +
+  geom_text(
+    aes(label = number(cty, accuracy = 0.1)),
+    hjust = -0.1,
+    size = 3.3,
+    color = PAL_DARK,
+    fontface = "bold"
+  ) +
+  scale_fill_manual(values = city_cols) +
+  expand_limits(x = max(city_refined$cty) + 2.5) +
+  labs(
+    title = "Versión elegante",
+    subtitle = "Orden, espacio y etiquetas directas mejoran la lectura",
+    x = "Millas por galón en ciudad",
+    y = NULL
+  ) +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.y = element_text(face = "bold")
+  )
+
+bad_plot | good_plot
+```
+
+## Principios de refinamiento
+
+1.  Ordena categorías por el valor que quieres comparar.
+2.  Usa color para agrupar o enfatizar, no para decorar cada elemento sin necesidad.
+3.  Prefiere etiquetas directas cuando la leyenda introduce trabajo extra.
+4.  Quita líneas de cuadrícula secundarias y fondos que no aportan.
+5.  Deja que el título diga la conclusión o la lectura esperada, no solo el tema.
+6.  Emplea facetas cuando la comparación por grupos sea más clara en paneles separados.
+7.  Mantén consistencia de tema, paleta y tratamiento tipográfico a lo largo del documento.
+
+::: callout-tip
+## Heurística útil de diseño
+
+Si un elemento no ayuda a comparar, ubicar o explicar, probablemente debe desaparecer o perder prominencia.
+:::
+
+# 7 · Ejes, escalas y coordenadas
+
+Uno de los aportes más útiles del tutorial de Cédric Scherer es insistir en que un gráfico no se termina cuando eliges el `geom`. La legibilidad final depende mucho de cómo resuelves ejes, etiquetas, rango visible y sistema de coordenadas.
+
+```{r}
+#| label: fig-axes-coords
+#| fig-cap: "Ejes, escalas y coordenadas: cuatro ajustes que cambian la lectura"
+#| fig-width: 11
+#| fig-height: 8.8
+
+eco_axes <- economics |>
+  filter(date >= as.Date("2008-01-01"), date <= as.Date("2015-12-01")) |>
+  transmute(
+    date,
+    unemploy_rate = unemploy / pop * 100
+  )
+
+p_axis_breaks <- ggplot(eco_axes, aes(date, unemploy_rate)) +
+  geom_line(color = PAL_MUST, linewidth = 0.95) +
+  scale_y_continuous(
+    labels = label_number(accuracy = 0.1, suffix = "%"),
+    breaks = seq(2, 8, by = 1)
+  ) +
+  labs(
+    title = "Escalas legibles",
+    subtitle = "Define breaks y unidades",
+    x = NULL,
+    y = "Tasa de desempleo"
+  )
+
+p_axis_zoom <- ggplot(mpg, aes(displ, hwy)) +
+  geom_point(color = PAL_CAN, alpha = 0.58, size = 2.1) +
+  coord_cartesian(xlim = c(2, 5.5), ylim = c(15, 35)) +
+  labs(
+    title = "coord_cartesian()",
+    subtitle = "Acerca la vista sin recalcular capas",
+    x = "Cilindrada",
+    y = "hwy"
+  )
+
+class_top <- mpg |>
+  count(class, sort = TRUE) |>
+  slice_head(n = 6) |>
+  mutate(class = fct_reorder(class, n))
+
+p_axis_flip <- ggplot(class_top, aes(class, n)) +
+  geom_col(fill = PAL_MUST, width = 0.72) +
+  geom_text(
+    aes(label = n),
+    hjust = -0.12,
+    size = 3.2,
+    color = PAL_DARK,
+    fontface = "bold"
+  ) +
+  coord_flip() +
+  expand_limits(y = max(class_top$n) + 5) +
+  labs(
+    title = "coord_flip()",
+    subtitle = "Útil cuando las etiquetas son largas",
+    x = NULL,
+    y = "Número de registros"
+  ) +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_axis_fixed <- ggplot(mpg, aes(displ, cty)) +
+  geom_point(color = PAL_MID, alpha = 0.62, size = 2) +
+  coord_fixed(ratio = 0.18) +
+  labs(
+    title = "coord_fixed()",
+    subtitle = "Controla la relación física entre ejes",
+    x = "Cilindrada",
+    y = "cty"
+  )
+
+(p_axis_breaks | p_axis_zoom) / (p_axis_flip | p_axis_fixed) +
+  plot_annotation(
+    title = "Lo esencial no siempre está en el geom",
+    caption = "Datos: ggplot2::economics y ggplot2::mpg"
+  )
+```
+
+## Reglas rápidas para ejes y coordenadas
+
+-   Usa `labs()` para poner nombres claros y unidades explícitas.
+-   Ajusta `breaks` y `labels` cuando el eje numérico no se entienda de inmediato.
+-   Prefiere `coord_cartesian()` para acercarte a una zona sin alterar estadísticas calculadas.
+-   Usa `coord_flip()` cuando las categorías tengan nombres largos o quieras facilitar la comparación.
+-   Recurre a `coord_fixed()` cuando la relación física entre ejes sea parte del mensaje.
+
+# 8 · Títulos, leyendas y narrativa textual
+
+Los textos no son decoración. Título, subtítulo, caption y leyenda forman parte del razonamiento visual. Un gráfico técnicamente correcto sigue siendo débil si obliga al lector a deducir por su cuenta qué debe mirar.
+
+```{r}
+#| label: fig-text-guides
+#| fig-cap: "El texto y la leyenda convierten un gráfico correcto en un gráfico comunicativo"
+#| fig-width: 11
+#| fig-height: 4.9
+
+text_df <- mpg |>
+  filter(class %in% c("compact", "midsize", "suv"))
+
+p_text_plain <- ggplot(text_df, aes(displ, hwy, color = drv)) +
+  geom_point(size = 2.2, alpha = 0.75) +
+  scale_color_manual(values = drv_cols) +
+  labs(
+    title = "Versión débil",
+    subtitle = "El tema aparece, pero no la lectura esperada",
+    x = "displ",
+    y = "hwy",
+    color = "drv",
+    caption = "Datos: ggplot2::mpg"
+  )
+p_text_plain 
+
+```
+
+```{r}
+#| label: fig-text-guides-2
+#| fig-cap: "El texto y la leyenda convierten un gráfico correcto en un gráfico comunicativo"
+#| fig-width: 11
+#| fig-height: 4.9
+p_text_strong <- ggplot(text_df, aes(displ, hwy, color = drv)) +
+  geom_point(size = 2.4, alpha = 0.8) +
+  geom_smooth(se = FALSE, linewidth = 0.95) +
+  scale_color_manual(
+    values = drv_cols,
+    labels = c("4" = "4x4", "f" = "Delantera", "r" = "Trasera")
+  ) +
+  labs(
+    title = "A menor cilindrada, suele observarse mejor rendimiento en carretera",
+    subtitle = "Relación entre cilindrada y hwy en tres tipos de tracción",
+    x = "Cilindrada (litros)",
+    y = "Millas por galón en carretera",
+    color = "Tracción",
+    caption = "Datos: ggplot2::mpg"
+  ) +
+  theme(
+    legend.position = "top",
+    plot.title.position = "plot",
+    plot.caption.position = "plot"
+  )
+
+p_text_strong
+```
+
+## Qué debe hacer cada pieza de texto
+
+-   `title`: decir la conclusión o la lectura prioritaria.
+-   `subtitle`: dar contexto, alcance, fechas o grupos.
+-   `caption`: dejar fuente, unidades o notas metodológicas.
+-   `legend`: explicar solo lo que no quede claro por posición o etiquetas directas.
+
+::: callout-note
+## Regla útil
+
+Si el título puede escribirse como una observación concreta, el gráfico suele ganar mucha claridad.
+:::
+
+# 9 · Color, facetas y pequeños múltiplos
+
+Color y facetas son dos de las herramientas más potentes de `ggplot2`, pero cumplen tareas distintas. El color sirve para distinguir o graduar. Las facetas sirven para separar patrones cuando mezclarlos en un mismo panel genera ruido.
+
+```{r}
+#| label: fig-color-facets
+#| fig-cap: "Color categórico, color continuo y facetas: tres decisiones distintas"
+#| fig-width: 11
+#| fig-height: 10
+
+mpg_small <- mpg |>
+  filter(class %in% c("compact", "midsize", "pickup", "suv"))
+
+p_color_cat <- ggplot(mpg_small, aes(displ, hwy, color = drv)) +
+  geom_point(size = 2.35, alpha = 0.8) +
+  scale_color_manual(
+    values = drv_cols,
+    labels = c("4" = "4x4", "f" = "Delantera", "r" = "Trasera")
+  ) +
+  labs(
+    title = "Color cualitativo",
+    subtitle = "Una variable categórica, pocos colores",
+    x = "Cilindrada",
+    y = "hwy",
+    color = "Tracción"
+  ) +
+  theme(legend.position = "top")
+p_color_cat
+```
+
+
+```{r}
+#| label: fig-color-facets-2
+#| fig-cap: "Color categórico, color continuo y facetas: tres decisiones distintas"
+#| fig-width: 11
+#| fig-height: 10
+
+p_color_cont <- ggplot(mpg_small, aes(displ, hwy, color = cty)) +
+  geom_point(size = 2.45, alpha = 0.86) +
+  scale_color_viridis_c(option = "cividis", end = 0.92) +
+  labs(
+    title = "Color continuo",
+    subtitle = "Un gradiente ordenado para cantidades",
+    x = "Cilindrada",
+    y = "hwy",
+    color = "cty"
+  )
+p_color_cont
+```
+
+```{r}
+#| label: fig-color-facets-3
+#| fig-cap: "Color categórico, color continuo y facetas: tres decisiones distintas"
+#| fig-width: 11
+#| fig-height: 10
+
+p_facets <- ggplot(mpg_small, aes(displ, hwy)) +
+  geom_point(color = PAL_MUST, alpha = 0.72, size = 2) +
+  geom_smooth(se = FALSE, color = PAL_CAN, linewidth = 0.85) +
+  facet_wrap(~ class, nrow = 2, scales = "free") +
+  labs(
+    title = "Facetas",
+    subtitle = "Separar paneles facilita comparar patrones",
+    x = "Cilindrada",
+    y = "hwy"
+  )
+p_facets 
+```
+
+::: callout-note
+## Criterios prácticos
+
+-   Usa paletas cualitativas para categorías y gradientes ordenados para variables continuas.
+-   Evita meter demasiados grupos en una sola escala de color.
+-   Si la comparación entre subgrupos se vuelve confusa, prueba `facet_wrap()` o `facet_grid()`.
+-   En facetas, reduce el ruido repetido: cuadrículas suaves, títulos cortos y escalas coherentes cuando la comparación lo exija.
+:::
+
+# 10 · Tendencias, incertidumbre y composición
+
+Otra idea central del tutorial de Scherer es que un buen gráfico rara vez se limita a una sola capa. Muchas veces hace falta sumar una tendencia, un rango plausible o una anotación precisa para que el mensaje se entienda con menos esfuerzo.
+
+```{r}
+#| label: fig-trends-ranges-annotations
+#| fig-cap: "Tendencias, rangos y anotaciones: capas que ayudan a leer"
+#| fig-width: 11
+#| fig-height: 10
+
+eco_trend <- economics |>
+  filter(date >= as.Date("2010-01-01"), date <= as.Date("2015-12-01")) |>
+  transmute(
+    date,
+    unemploy_rate = unemploy / pop * 100,
+    low = unemploy_rate - 0.25,
+    high = unemploy_rate + 0.25
+  )
+
+p_smooth <- ggplot(mpg, aes(displ, hwy)) +
+  geom_point(color = PAL_MID, alpha = 0.32, size = 1.8) +
+  geom_smooth(se = FALSE, color = PAL_MUST, linewidth = 1) +
+  labs(
+    title = "Añadir tendencia",
+    subtitle = "`geom_smooth()` resume sin ocultar los datos",
+    x = "Cilindrada",
+    y = "hwy"
+  )
+p_smooth
+```
+
+```{r}
+#| label: fig-trends-ranges-annotations-2
+#| fig-cap: "Tendencias, rangos y anotaciones: capas que ayudan a leer"
+#| fig-width: 11
+#| fig-height: 10
+p_ribbon <- ggplot(eco_trend, aes(date, unemploy_rate)) +
+  geom_ribbon(aes(ymin = low, ymax = high), fill = PAL_CAN, alpha = 0.22) +
+  geom_line(color = PAL_MUST, linewidth = 0.95) +
+  labs(
+    title = "Mostrar incertidumbre o rango",
+    subtitle = "`geom_ribbon()` funciona bien para intervalos",
+    x = NULL,
+    y = "Tasa de desempleo"
+  )
+p_ribbon
+```
+```{r}
+#| label: fig-trends-ranges-annotations-3
+#| fig-cap: "Tendencias, rangos y anotaciones: capas que ayudan a leer"
+#| fig-width: 11
+#| fig-height: 10
+annot_df <- mpg_small |>
+  group_by(class) |>
+  summarise(hwy = mean(hwy), .groups = "drop") |>
+  mutate(class = fct_reorder(class, hwy))
+
+highlight_class <- annot_df |>
+  slice_max(hwy, n = 1)
+
+p_annotation <- ggplot(annot_df, aes(class, hwy)) +
+  geom_col(fill = PAL_CAN, width = 0.72) +
+  geom_label(
+    data = highlight_class,
+    aes(label = "Mejor promedio"),
+    nudge_y = 1.15,
+    fill = PAL_MUST,
+    color = "white",
+    fontface = "bold",
+    label.size = 0
+  ) +
+  coord_flip() +
+  expand_limits(y = max(annot_df$hwy) + 2.2) +
+  labs(
+    title = "Anotar con intención",
+    subtitle = "Resalta lo importante, no todo a la vez",
+    x = NULL,
+    y = "hwy promedio"
+  ) +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_annotation
+```
+
+## Combinar varias vistas en una historia
+
+Cuando una sola figura no alcanza, conviene pasar de un gráfico aislado a una composición breve. En `ggplot2`, el flujo más simple suele ser construir cada panel por separado y combinarlos con `{patchwork}`.
+
+``` r
+p_resumen <- ...
+p_detalle_1 <- ...
+p_detalle_2 <- ...
+
+p_resumen / (p_detalle_1 | p_detalle_2)
+```
+
+## Qué añadir y cuándo
+
+-   Usa `geom_smooth()` cuando la tendencia sea más importante que el detalle puntual.
+-   Usa `geom_ribbon()` cuando necesites mostrar rango, incertidumbre o intervalo.
+-   Añade anotaciones solo si reducen trabajo interpretativo.
+-   Compón varias vistas cuando una sola no alcance para explicar contexto, detalle y comparación.
+
+# 11 · Atlas de gráficos para variables numéricas
+
+Elegir un gráfico para variables numéricas no consiste en escoger el `geom` más llamativo, sino en reconocer qué lectura necesitas favorecer: ver una distribución, comparar grupos, estudiar una relación, seguir una trayectoria o resumir una estructura multivariada.
+
+Este atlas reúne las formas más útiles de visualización numérica en un orden práctico de consulta. Cada ejemplo está planteado como una receta base: muestra una forma visual concreta, el tipo de lectura que facilita y un código breve que puedes adaptar después a tus propios datos.
+
+## Una variable numérica
+
+Cuando solo quieres entender la forma de una distribución, los dos primeros gráficos que conviene dominar son histograma y densidad.
+
+```{r}
+#| label: prep-atlas-num-una-variable
+#| include: false
+
+faithful_df <- tibble::as_tibble(faithful)
+```
+
+```{r}
+#| label: fig-atlas-una-variable-hist
+#| fig-cap: "Atlas numérico · Una variable: histograma"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(faithful_df, aes(eruptions)) +
+  geom_histogram(bins = 18, fill = PAL_CAN, color = "white", linewidth = 0.5) +
+  labs(
+    title = "Histograma",
+    subtitle = "Útil para ver forma, sesgo y concentración",
+    x = "Duración de la erupción",
+    y = "Conteo"
+  )
+```
+
+```{r}
+#| label: fig-atlas-una-variable-density
+#| fig-cap: "Atlas numérico · Una variable: densidad"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(faithful_df, aes(eruptions)) +
+  geom_density(fill = PAL_MUST, alpha = 0.3, color = PAL_MUST, linewidth = 1) +
+  labs(
+    title = "Densidad",
+    subtitle = "Resume la distribución con una curva suave",
+    x = "Duración de la erupción",
+    y = "Densidad"
+  )
+```
+
+## Dos numéricas sin orden
+
+Si tienes dos variables continuas sin una secuencia temporal clara, lo más habitual es estudiar relación, concentración y solapamiento.
+
+```{r}
+#| label: prep-atlas-num-dos-sin-orden
+#| include: false
+
+mpg_rel <- mpg |>
+  filter(class %in% c("compact", "midsize", "pickup", "suv"))
+```
+
+```{r}
+#| label: fig-atlas-dos-numericas-scatter
+#| fig-cap: "Atlas numérico · Dos numéricas sin orden: scatter plot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(mpg_rel, aes(displ, hwy)) +
+  geom_point(color = PAL_MUST, alpha = 0.62, size = 2.1) +
+  labs(
+    title = "Scatter plot",
+    subtitle = "La vista base para relación entre dos continuas",
+    x = "Cilindrada",
+    y = "hwy"
+  )
+```
+
+```{r}
+#| label: fig-atlas-dos-numericas-density2d
+#| fig-cap: "Atlas numérico · Dos numéricas sin orden: densidad 2D"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(mpg_rel, aes(displ, hwy)) +
+  geom_point(color = PAL_MID, alpha = 0.15, size = 1.4) +
+  geom_density_2d(color = PAL_CAN, linewidth = 0.9) +
+  labs(
+    title = "2D density",
+    subtitle = "Útil cuando hay concentración y sobreposición",
+    x = "Cilindrada",
+    y = "hwy"
+  )
+```
+
+```{r}
+#| label: fig-atlas-dos-numericas-marginal
+#| fig-cap: "Atlas numérico · Dos numéricas sin orden: distribución marginal"
+#| fig-width: 7.8
+#| fig-height: 6.4
+
+p_top_marg <- ggplot(mpg_rel, aes(displ)) +
+  geom_histogram(bins = 16, fill = PAL_CAN, color = "white", linewidth = 0.4) +
+  theme_guide(base_size = 10) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_right_marg <- ggplot(mpg_rel, aes(hwy)) +
+  geom_histogram(bins = 16, fill = PAL_MUST, color = "white", linewidth = 0.4) +
+  coord_flip() +
+  theme_guide(base_size = 10) +
+  theme(
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_center_marg <- ggplot(mpg_rel, aes(displ, hwy)) +
+  geom_point(color = PAL_DARK, alpha = 0.5, size = 1.8) +
+  labs(
+    title = "Marginal distribution",
+    subtitle = "Combina dispersión con histogramas por eje",
+    x = "Cilindrada",
+    y = "hwy"
+  )
+
+(p_top_marg + patchwork::plot_spacer()) /
+  (p_center_marg + p_right_marg) +
+  plot_layout(widths = c(4.2, 1.2), heights = c(1.2, 4))
+```
+
+## Distribuciones por grupo
+
+Cuando comparas una variable numérica entre categorías, aparecen tres familias especialmente útiles: boxplot, violin y ridgeline.
+
+```{r}
+#| label: prep-atlas-num-por-grupo
+#| include: false
+
+mpg_group <- mpg |>
+  filter(class %in% c("compact", "midsize", "pickup", "suv")) |>
+  mutate(class = fct_reorder(class, hwy, .fun = median))
+```
+
+```{r}
+#| label: fig-atlas-por-grupo-boxplot
+#| fig-cap: "Atlas numérico · Distribuciones por grupo: boxplot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(mpg_group, aes(class, hwy, fill = class)) +
+  geom_boxplot(show.legend = FALSE, alpha = 0.85, width = 0.7, outlier.alpha = 0.35) +
+  coord_flip() +
+  labs(
+    title = "Box plot",
+    subtitle = "Resumen robusto por grupo",
+    x = NULL,
+    y = "hwy"
+  ) +
+  scale_fill_brewer(palette = "YlGn") +
+  theme(panel.grid.major.y = element_blank())
+```
+
+```{r}
+#| label: fig-atlas-por-grupo-violin
+#| fig-cap: "Atlas numérico · Distribuciones por grupo: violin"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(mpg_group, aes(class, hwy, fill = class)) +
+  geom_violin(show.legend = FALSE, alpha = 0.78, linewidth = 0.5) +
+  coord_flip() +
+  labs(
+    title = "Violin",
+    subtitle = "Muestra mejor la forma de la distribución",
+    x = NULL,
+    y = "hwy"
+  ) +
+  scale_fill_brewer(palette = "YlOrBr") +
+  theme(panel.grid.major.y = element_blank())
+```
+
+```{r}
+#| label: fig-atlas-por-grupo-ridgeline
+#| fig-cap: "Atlas numérico · Distribuciones por grupo: ridgeline"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+if (requireNamespace("ggridges", quietly = TRUE)) {
+  ggplot(mpg_group, aes(hwy, class, fill = after_stat(x))) +
+    ggridges::geom_density_ridges_gradient(
+      scale = 1.5,
+      rel_min_height = 0.01,
+      color = "white"
+    ) +
+    scale_fill_viridis_c(option = "cividis", guide = "none") +
+    labs(
+      title = "Ridgeline",
+      subtitle = "Compara varias distribuciones en paralelo",
+      x = "hwy",
+      y = NULL
+    )
+} else {
+  ggplot() +
+    annotate(
+      "text", x = 1, y = 1,
+      label = "Ridgeline\nrequiere {ggridges}\npara renderizarse",
+      family = "sans", fontface = "bold", size = 5, color = PAL_MID
+    ) +
+    xlim(0.5, 1.5) + ylim(0.5, 1.5) +
+    theme_void() +
+    labs(
+      title = "Ridgeline",
+      subtitle = "Ejemplo dependiente de extensión"
+    )
+}
+```
+
+## Dos o más numéricas ordenadas
+
+Si el orden importa, normalmente porque hay tiempo o secuencia, entonces entran en juego el line plot, area plot y connected scatter.
+
+```{r}
+#| label: prep-atlas-num-ordenadas
+#| include: false
+
+eco_short <- economics |>
+  filter(date >= as.Date("2008-01-01"), date <= as.Date("2012-12-01")) |>
+  transmute(
+    date,
+    unemploy_rate = unemploy / pop * 100,
+    savings = psavert
+  )
+```
+
+```{r}
+#| label: fig-atlas-ordenadas-line
+#| fig-cap: "Atlas numérico · Series ordenadas: line plot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(eco_short, aes(date, unemploy_rate)) +
+  geom_line(color = PAL_MUST, linewidth = 1) +
+  labs(
+    title = "Line plot",
+    subtitle = "La opción natural para una serie temporal",
+    x = NULL,
+    y = "Desempleo (%)"
+  )
+```
+
+```{r}
+#| label: fig-atlas-ordenadas-area
+#| fig-cap: "Atlas numérico · Series ordenadas: area plot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(eco_short, aes(date, savings)) +
+  geom_area(fill = PAL_CAN, alpha = 0.55, color = PAL_CAN, linewidth = 0.6) +
+  labs(
+    title = "Area plot",
+    subtitle = "Funciona bien cuando el área tiene significado",
+    x = NULL,
+    y = "Tasa de ahorro"
+  )
+```
+
+```{r}
+#| label: fig-atlas-ordenadas-connected
+#| fig-cap: "Atlas numérico · Series ordenadas: connected scatter"
+#| fig-width: 7.2
+#| fig-height: 5.4
+
+conn_df <- economics |>
+  mutate(year = as.integer(format(date, "%Y"))) |>
+  filter(year >= 2000, year <= 2014) |>
+  group_by(year) |>
+  summarise(
+    psavert = mean(psavert, na.rm = TRUE),
+    unemploy = mean(unemploy / 1000, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(conn_df, aes(psavert, unemploy)) +
+  geom_path(
+    color = PAL_MID,
+    linewidth = 0.9,
+    arrow = grid::arrow(length = grid::unit(0.08, "in"), type = "closed")
+  ) +
+  geom_point(color = PAL_MUST, size = 2.2) +
+  geom_text(aes(label = year), nudge_y = 0.35, size = 3, color = PAL_DARK) +
+  labs(
+    title = "Connected scatter",
+    subtitle = "Útil para seguir trayectorias en el tiempo",
+    x = "Tasa de ahorro promedio",
+    y = "Desempleo promedio (miles)"
+  )
+```
+
+## Varias numéricas ordenadas
+
+Cuando comparas varias series ordenadas al mismo tiempo, los gráficos más habituales son line plot múltiple, stacked area y stream graph.
+
+```{r}
+#| label: prep-atlas-num-varias-ordenadas
+#| include: false
+
+multi_order <- economics |>
+  filter(date >= as.Date("2000-01-01"), date <= as.Date("2004-12-01")) |>
+  transmute(
+    date,
+    Consumo = scales::rescale(pce, to = c(20, 85)),
+    Ahorro = scales::rescale(psavert, to = c(5, 28)),
+    Desempleo = scales::rescale(unemploy, to = c(10, 45))
+  ) |>
+  pivot_longer(-date, names_to = "serie", values_to = "valor") |>
+  mutate(serie = factor(serie, levels = c("Consumo", "Ahorro", "Desempleo")))
+
+series_cols <- c(
+  "Consumo" = PAL_MUST,
+  "Ahorro" = PAL_CAN,
+  "Desempleo" = "#8393C6"
+)
+```
+
+```{r}
+#| label: fig-atlas-varias-ordenadas-lineas
+#| fig-cap: "Atlas numérico · Varias series ordenadas: línea múltiple"
+#| fig-width: 7.6
+#| fig-height: 4.8
+
+ggplot(multi_order, aes(date, valor, color = serie)) +
+  geom_line(linewidth = 0.95) +
+  scale_color_manual(values = series_cols) +
+  labs(
+    title = "Line plot múltiple",
+    subtitle = "Mejor cuando el foco está en comparar trayectorias",
+    x = NULL,
+    y = "Valor reescalado",
+    color = NULL
+  ) +
+  theme(legend.position = "top")
+```
+
+```{r}
+#| label: fig-atlas-varias-ordenadas-stacked
+#| fig-cap: "Atlas numérico · Varias series ordenadas: stacked area"
+#| fig-width: 7.6
+#| fig-height: 4.8
+
+ggplot(multi_order, aes(date, valor, fill = serie)) +
+  geom_area(alpha = 0.88) +
+  scale_fill_manual(values = series_cols) +
+  labs(
+    title = "Stacked area",
+    subtitle = "Sirve para ver total y composición simultáneamente",
+    x = NULL,
+    y = "Valor acumulado",
+    fill = NULL
+  ) +
+  theme(legend.position = "top")
+```
+
+```{r}
+#| label: fig-atlas-varias-ordenadas-stream
+#| fig-cap: "Atlas numérico · Varias series ordenadas: stream graph"
+#| fig-width: 7.6
+#| fig-height: 5.4
+
+stream_df <- multi_order |>
+  arrange(date, serie) |>
+  group_by(date) |>
+  mutate(
+    total = sum(valor),
+    baseline = -total / 2,
+    ymax = cumsum(valor) + baseline,
+    ymin = lag(ymax, default = first(baseline))
+  ) |>
+  ungroup()
+
+ggplot(stream_df, aes(date, ymin = ymin, ymax = ymax, fill = serie)) +
+  geom_ribbon(color = NA, alpha = 0.95) +
+  scale_fill_manual(values = series_cols) +
+  labs(
+    title = "Stream graph",
+    subtitle = "Variante centrada para resaltar flujo y cambio relativo",
+    x = NULL,
+    y = NULL,
+    fill = NULL
+  ) +
+  theme(
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    legend.position = "top"
+  )
+```
+
+## Tres o más numéricas sin orden
+
+En datos multivariados sin secuencia temporal suelen aparecer gráficos como bubble plot, correlogram y heatmap.
+
+```{r}
+#| label: prep-atlas-num-multivariado
+#| include: false
+
+volcano_df <- expand_grid(
+  x = seq_len(nrow(volcano)),
+  y = seq_len(ncol(volcano))
+) |>
+  mutate(z = as.vector(volcano))
+```
+
+```{r}
+#| label: fig-atlas-multivariado-bubble
+#| fig-cap: "Atlas numérico · Tres o más numéricas sin orden: bubble plot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(mtcars, aes(wt, mpg, size = hp, color = qsec)) +
+  geom_point(alpha = 0.75) +
+  scale_color_viridis_c(option = "plasma") +
+  scale_size(range = c(2.5, 10)) +
+  labs(
+    title = "Bubble plot",
+    subtitle = "x, y, tamaño y color permiten mapear cuatro variables",
+    x = "Peso",
+    y = "mpg",
+    size = "hp",
+    color = "qsec"
+  )
+```
+
+```{r}
+#| label: fig-atlas-multivariado-corr
+#| fig-cap: "Atlas numérico · Tres o más numéricas sin orden: correlogram"
+#| fig-width: 7.2
+#| fig-height: 5.6
+
+corr_df <- mtcars |>
+  select(mpg, disp, hp, wt, qsec, drat) |>
+  cor() |>
+  as.data.frame() |>
+  tibble::rownames_to_column("var1") |>
+  pivot_longer(-var1, names_to = "var2", values_to = "corr")
+
+ggplot(corr_df, aes(var1, var2, fill = corr)) +
+  geom_tile(color = "white") +
+  geom_text(
+    aes(label = sprintf("%.2f", corr), color = abs(corr) > 0.65),
+    size = 3.1,
+    fontface = "bold"
+  ) +
+  scale_fill_gradient2(low = "#8AA1D4", mid = "white", high = PAL_CAN, limits = c(-1, 1)) +
+  scale_color_manual(values = c("TRUE" = PAL_DARK, "FALSE" = PAL_MID), guide = "none") +
+  coord_equal() +
+  labs(
+    title = "Correlogram",
+    subtitle = "Resume intensidad y signo de correlaciones",
+    x = NULL,
+    y = NULL
+  ) +
+  theme(axis.text.x = element_text(angle = 40, hjust = 1))
+```
+
+```{r}
+#| label: fig-atlas-multivariado-heatmap
+#| fig-cap: "Atlas numérico · Tres o más numéricas sin orden: heatmap"
+#| fig-width: 7.2
+#| fig-height: 5.6
+
+ggplot(volcano_df, aes(x, y, fill = z)) +
+  geom_raster() +
+  coord_equal() +
+  scale_fill_viridis_c(option = "cividis") +
+  labs(
+    title = "Heatmap",
+    subtitle = "Convierte una matriz numérica en una superficie legible",
+    x = NULL,
+    y = NULL,
+    fill = "Valor"
+  )
+```
+
+## Estructura, similitud y reducción de dimensión
+
+Cuando el objetivo es entender estructura global entre muchas variables o muchas observaciones, entran gráficos como PCA, surface plot y dendrograma.
+
+```{r}
+#| label: fig-atlas-estructura-pca
+#| fig-cap: "Atlas numérico · Estructura: PCA"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+iris_pca <- prcomp(iris[, 1:4], scale. = TRUE)
+
+pca_scores <- as_tibble(iris_pca$x[, 1:2]) |>
+  bind_cols(Species = iris$Species)
+
+ggplot(pca_scores, aes(PC1, PC2, color = Species)) +
+  geom_point(size = 2.3, alpha = 0.78) +
+  scale_color_brewer(palette = "Dark2") +
+  labs(
+    title = "PCA",
+    subtitle = "Reduce dimensión y ayuda a ver separación entre grupos",
+    x = "Componente principal 1",
+    y = "Componente principal 2",
+    color = NULL
+  ) +
+  theme(legend.position = "top")
+```
+
+```{r}
+#| label: fig-atlas-estructura-surface
+#| fig-cap: "Atlas numérico · Estructura: surface plot (proyección 2D)"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot(volcano_df, aes(x, y, z = z)) +
+  geom_contour_filled() +
+  coord_equal() +
+  labs(
+    title = "Surface plot (proyección 2D)",
+    subtitle = "Alternativa nativa para representar z = f(x, y)",
+    x = NULL,
+    y = NULL,
+    fill = "Nivel"
+  )
+```
+
+```{r}
+#| label: fig-atlas-dendrograma
+#| fig-cap: "Dendrograma: útil para explorar similitud entre observaciones"
+#| fig-width: 8
+#| fig-height: 5.3
+
+hc <- hclust(dist(scale(USArrests)), method = "ward.D2")
+plot(hc, main = "Dendrograma de similitud", xlab = "", sub = "")
+```
+
+## Cómo leer este atlas
+
+En esta guía uso una convención editorial simple:
+
+-   `Primera opción`: gráficos que conviene probar antes porque maximizan claridad y comparación.
+-   `Especializados`: gráficos útiles, pero dependientes de contexto, densidad, jerarquía o intención narrativa.
+
+`Primera opción` en datos numéricos:
+
+-   `histogram` y `density` para una variable.
+-   `scatter` para dos continuas.
+-   `boxplot` para comparar grupos.
+-   `line plot` para series ordenadas.
+-   `heatmap` y `correlogram` para estructura multivariada resumida.
+
+`Especializados` en datos numéricos:
+
+-   `2d density` y `marginal distribution` cuando el scatter se satura.
+-   `violin` y `ridgeline` cuando importa la forma completa de la distribución.
+-   `area`, `connected scatter`, `stacked area` y `stream graph` cuando además del valor importa trayectoria o composición.
+-   `bubble`, `PCA`, `surface plot` y `dendrogram` cuando la pregunta ya es multivariada o estructural.
+
+::: callout-tip
+## Regla de decisión
+
+Antes de elegir un gráfico, responde tres cosas: cuántas variables numéricas intervienen, si existe orden natural y si necesitas comparar distribuciones, relaciones, trayectorias o estructura.
+:::
+
+# 12 · Atlas de gráficos para variables categóricas y numéricas
+
+La nueva imagen amplía el mapa anterior: ahora ya no basta con contar cuántas variables numéricas tienes, también importa si hay categorías, si el valor es un resumen o muchas observaciones por grupo, si existe orden, si la estructura es jerárquica y si estás mostrando flujos o adyacencias.
+
+Este atlas comparte varios gráficos con el atlas numérico y con el atlas categórico. La diferencia no está en el nombre del `geom`, sino en la pregunta: aquí siempre hay al menos una categoría y al menos un valor numérico implicados.
+
+En lugar de tratar esta familia como una lista plana de `geoms`, conviene leerla como seis preguntas de diseño:
+
+-   ¿quieres comparar magnitudes o proporciones?
+-   ¿quieres comparar distribuciones entre grupos?
+-   ¿quieres resumir perfiles de varias métricas por categoría?
+-   ¿quieres seguir trayectorias ordenadas?
+-   ¿quieres mostrar jerarquías?
+-   ¿quieres representar relaciones entre nodos o bloques?
+
+## Una categoría y un valor por grupo
+
+Cuando cada categoría ya está resumida en un solo valor, la familia natural es la de barras, lollipops, waffles y variantes de composición.
+
+```{r}
+#| label: fig-atlas-catnum-composicion-waffle
+#| fig-cap: "Atlas categórico + numérico · Una categoría y un valor: waffle"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+class_counts <- mpg |>
+  count(class, sort = TRUE) |>
+  slice_head(n = 6) |>
+  mutate(
+    class = str_to_title(class),
+    prop = n / sum(n)
+  )
+
+class_cols <- setNames(cat_palette[seq_len(nrow(class_counts))], class_counts$class)
+
+waffle_df <- class_counts |>
+  arrange(desc(n)) |>
+  mutate(tiles = round(prop * 100)) |>
+  uncount(tiles) |>
+  mutate(
+    tile = row_number() - 1,
+    col = tile %% 10,
+    row = tile %/% 10
+  )
+
+ggplot(waffle_df, aes(col, -row, fill = class)) +
+  geom_tile(color = PAL_BG, linewidth = 0.35) +
+  scale_fill_manual(values = class_cols) +
+  coord_equal() +
+  labs(
+    title = "Waffle",
+    subtitle = "Convierte proporciones en una retícula de 100 unidades",
+    x = NULL,
+    y = NULL,
+    fill = NULL
+  ) +
+  theme_void() +
+  theme(legend.position = "right")
+```
+
+```{r}
+#| label: fig-atlas-catnum-composicion-bar
+#| fig-cap: "Atlas categórico + numérico · Una categoría y un valor: barplot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(class_counts |> arrange(n), aes(n, fct_reorder(class, n), fill = class)) +
+  geom_col(width = 0.72, show.legend = FALSE) +
+  scale_fill_manual(values = class_cols) +
+  labs(
+    title = "Barplot",
+    subtitle = "La referencia principal cuando la comparación importa",
+    x = "Número de registros",
+    y = NULL
+  ) +
+  theme(panel.grid.major.y = element_blank())
+```
+
+```{r}
+#| label: fig-atlas-catnum-composicion-lollipop
+#| fig-cap: "Atlas categórico + numérico · Una categoría y un valor: lollipop"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(class_counts |> arrange(n), aes(n, fct_reorder(class, n), color = class)) +
+  geom_segment(
+    aes(x = 0, xend = n, y = class, yend = class),
+    linewidth = 1.2,
+    color = PAL_GRID
+  ) +
+  geom_point(size = 4.2, show.legend = FALSE) +
+  scale_color_manual(values = class_cols) +
+  labs(
+    title = "Lollipop",
+    subtitle = "Reduce tinta sin perder legibilidad comparativa",
+    x = "Número de registros",
+    y = NULL
+  ) +
+  theme(panel.grid.major.y = element_blank())
+```
+
+```{r}
+#| label: fig-atlas-catnum-composicion-word
+#| fig-cap: "Atlas categórico + numérico · Una categoría y un valor: word cloud"
+#| fig-width: 7.2
+#| fig-height: 5
+
+word_df <- class_counts |>
+  mutate(
+    x = c(-1.05, 0.85, -0.35, 1.05, -0.95, 0.25),
+    y = c(1.05, 1.08, 0.18, 0.02, -0.95, -1.15),
+    angle = c(0, 0, 8, -10, 0, -6)
+  )
+
+ggplot(word_df, aes(x, y, label = class, size = n, color = class, angle = angle)) +
+  geom_text(fontface = "bold", show.legend = FALSE) +
+  scale_color_manual(values = class_cols) +
+  scale_size(range = c(8, 17)) +
+  coord_equal() +
+  theme_void() +
+  labs(
+    title = "Word cloud",
+    subtitle = "Atractiva, pero mucho menos precisa que barras o puntos"
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-composicion-pack
+#| fig-cap: "Atlas categórico + numérico · Una categoría y un valor: circular packing"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+pack_layout <- class_counts |>
+  mutate(
+    x = c(0.27, 0.56, 0.82, 0.37, 0.69, 0.53),
+    y = c(0.72, 0.78, 0.64, 0.39, 0.39, 0.14),
+    r = rescale(sqrt(n), to = c(0.11, 0.23))
+  )
+
+pack_poly <- pmap_dfr(
+  list(pack_layout$class, pack_layout$x, pack_layout$y, pack_layout$r),
+  function(class, x0, y0, r) {
+    circle_polygon(x0, y0, r) |>
+      mutate(class = class)
+  }
+)
+
+ggplot() +
+  geom_polygon(
+    data = pack_poly,
+    aes(x, y, group = class, fill = class),
+    color = PAL_BG,
+    linewidth = 0.6
+  ) +
+  geom_text(
+    data = pack_layout,
+    aes(x, y, label = class),
+    size = 3.1,
+    fontface = "bold",
+    color = PAL_DARK
+  ) +
+  scale_fill_manual(values = class_cols, guide = "none") +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Circular packing",
+    subtitle = "Visualmente sugerente, pero peor para comparar tamaños"
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-composicion-doughnut
+#| fig-cap: "Atlas categórico + numérico · Una categoría y un valor: doughnut"
+#| fig-width: 7.2
+#| fig-height: 5
+
+ggplot(class_counts, aes(x = 2, y = n, fill = class)) +
+  geom_col(color = PAL_BG, width = 0.9) +
+  coord_polar(theta = "y") +
+  xlim(0.5, 2.5) +
+  scale_fill_manual(values = class_cols, guide = "none") +
+  theme_void() +
+  labs(
+    title = "Doughnut",
+    subtitle = "Úsala con pocas categorías y solo si la forma circular aporta"
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-composicion-pie
+#| fig-cap: "Atlas categórico + numérico · Una categoría y un valor: pie"
+#| fig-width: 7.2
+#| fig-height: 5
+
+ggplot(class_counts, aes(x = 1, y = n, fill = class)) +
+  geom_col(color = PAL_BG, width = 1) +
+  coord_polar(theta = "y") +
+  scale_fill_manual(values = class_cols, guide = "none") +
+  theme_void() +
+  labs(
+    title = "Pie",
+    subtitle = "Aceptable solo cuando las partes son pocas y muy distintas"
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-composicion-treemap
+#| fig-cap: "Atlas categórico + numérico · Una categoría y un valor: treemap"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+tree_rects <- simple_treemap_layout(
+  class_counts |>
+    transmute(class = as.character(class), value = n),
+  value_col = "value"
+)
+
+ggplot(tree_rects) +
+  geom_rect(
+    aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = class),
+    color = PAL_BG,
+    linewidth = 0.7
+  ) +
+  geom_text(
+    aes(x = (xmin + xmax) / 2, y = (ymin + ymax) / 2, label = class),
+    size = 3.2,
+    fontface = "bold",
+    color = PAL_DARK
+  ) +
+  scale_fill_manual(values = class_cols, guide = "none") +
+  coord_equal(expand = FALSE) +
+  theme_void() +
+  labs(
+    title = "Treemap",
+    subtitle = "Compacta muchas partes en poco espacio útil"
+  )
+```
+
+::: callout-note
+## Regla práctica
+
+Si tu objetivo principal es comparar categorías, empieza por `barplot` o `lollipop`. Waffle, pie, doughnut, word cloud y circular packing son más expresivos que analíticos.
+:::
+
+## Varias observaciones numéricas por categoría
+
+Cuando cada grupo contiene muchas observaciones, la decisión clave deja de ser “composición” y pasa a ser “forma de la distribución”.
+
+```{r}
+#| label: fig-atlas-catnum-distribuciones-box
+#| fig-cap: "Atlas categórico + numérico · Distribuciones por grupo: boxplot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+mpg_dist <- mpg |>
+  filter(class %in% c("compact", "midsize", "pickup", "suv")) |>
+  mutate(
+    class = str_to_title(class),
+    class = fct_reorder(class, hwy, median)
+  )
+
+group_cols <- setNames(cat_palette[seq_len(nlevels(mpg_dist$class))], levels(mpg_dist$class))
+
+ggplot(mpg_dist, aes(class, hwy, fill = class)) +
+  geom_boxplot(alpha = 0.88, width = 0.68, outlier.alpha = 0.3, show.legend = FALSE) +
+  coord_flip() +
+  scale_fill_manual(values = group_cols) +
+  labs(
+    title = "Boxplot",
+    subtitle = "Resumen robusto: mediana, rango intercuartílico y extremos",
+    x = NULL,
+    y = "hwy"
+  ) +
+  theme(panel.grid.major.y = element_blank())
+```
+
+```{r}
+#| label: fig-atlas-catnum-distribuciones-violin
+#| fig-cap: "Atlas categórico + numérico · Distribuciones por grupo: violin"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(mpg_dist, aes(class, hwy, fill = class)) +
+  geom_violin(alpha = 0.8, linewidth = 0.5, show.legend = FALSE) +
+  coord_flip() +
+  scale_fill_manual(values = group_cols) +
+  labs(
+    title = "Violin",
+    subtitle = "Mejor cuando te interesa la forma interna de cada grupo",
+    x = NULL,
+    y = "hwy"
+  ) +
+  theme(panel.grid.major.y = element_blank())
+```
+
+```{r}
+#| label: fig-atlas-catnum-distribuciones-ridge
+#| fig-cap: "Atlas categórico + numérico · Distribuciones por grupo: ridgeline"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+if (requireNamespace("ggridges", quietly = TRUE)) {
+  ggplot(mpg_dist, aes(hwy, class, fill = after_stat(x))) +
+    ggridges::geom_density_ridges_gradient(
+      scale = 1.45,
+      rel_min_height = 0.01,
+      color = "white"
+    ) +
+    scale_fill_viridis_c(option = "cividis", guide = "none") +
+    labs(
+      title = "Ridgeline",
+      subtitle = "Compara muchas distribuciones en paralelo",
+      x = "hwy",
+      y = NULL
+    )
+} else {
+  ggplot() +
+    annotate(
+      "text",
+      x = 1, y = 1,
+      label = "Ridgeline\nrequiere {ggridges}\npara renderizarse",
+      size = 5.2,
+      fontface = "bold",
+      color = PAL_MID
+    ) +
+    xlim(0.5, 1.5) +
+    ylim(0.5, 1.5) +
+    theme_void() +
+    labs(
+      title = "Ridgeline",
+      subtitle = "Ejemplo dependiente de extensión"
+    )
+}
+```
+
+```{r}
+#| label: fig-atlas-catnum-distribuciones-density
+#| fig-cap: "Atlas categórico + numérico · Distribuciones por grupo: density"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(mpg_dist, aes(hwy, fill = class, color = class)) +
+  geom_density(alpha = 0.22, linewidth = 0.9) +
+  scale_fill_manual(values = group_cols) +
+  scale_color_manual(values = group_cols) +
+  labs(
+    title = "Density",
+    subtitle = "Buena para comparar forma general cuando hay suficiente muestra",
+    x = "hwy",
+    y = "Densidad",
+    fill = NULL,
+    color = NULL
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-distribuciones-hist
+#| fig-cap: "Atlas categórico + numérico · Distribuciones por grupo: histogram"
+#| fig-width: 7.6
+#| fig-height: 5.6
+
+ggplot(mpg_dist, aes(hwy, fill = class)) +
+  geom_histogram(bins = 12, color = "white", linewidth = 0.35, show.legend = FALSE) +
+  facet_wrap(~class, ncol = 2) +
+  scale_fill_manual(values = group_cols) +
+  labs(
+    title = "Histogram",
+    subtitle = "Más útil si quieres ver concentración y asimetría por grupo",
+    x = "hwy",
+    y = "Conteo"
+  )
+```
+
+## Una categoría con varias métricas numéricas
+
+Aquí la pregunta cambia: ya no solo comparas una variable entre grupos, sino perfiles completos, relaciones entre métricas y separación multivariada.
+
+```{r}
+#| label: fig-atlas-catnum-metricas
+#| include: false
+
+iris_cols <- setNames(cat_palette[1:3], levels(iris$Species))
+
+```
+
+```{r}
+#| label: fig-atlas-catnum-metricas-grouped
+#| fig-cap: "Atlas categórico + numérico · Varias métricas: grouped scatter"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+p_grouped_scatter <- ggplot(iris, aes(Sepal.Length, Petal.Length, color = Species)) +
+  geom_point(size = 2.3, alpha = 0.74) +
+  scale_color_manual(values = iris_cols) +
+  labs(
+    title = "Grouped scatter",
+    subtitle = "Muestra relación y separación entre grupos",
+    x = "Sepal.Length",
+    y = "Petal.Length",
+    color = NULL
+  )
+
+p_grouped_scatter
+```
+
+```{r}
+#| label: fig-atlas-catnum-metricas-density
+#| fig-cap: "Atlas categórico + numérico · Varias métricas: densidad 2D"
+#| fig-width: 7.2
+#| fig-height: 5.2
+p_density2d_catnum <- ggplot(iris, aes(Sepal.Length, Petal.Length)) +
+  geom_point(aes(color = Species), alpha = 0.18, size = 1.8, show.legend = FALSE) +
+  geom_density_2d(color = PAL_DARK, linewidth = 0.75) +
+  facet_wrap(~Species) +
+  scale_color_manual(values = iris_cols) +
+  labs(
+    title = "2D density",
+    subtitle = "Útil cuando la nube de puntos empieza a saturarse",
+    x = "Sepal.Length",
+    y = "Petal.Length"
+  )
+p_density2d_catnum
+```
+
+```{r}
+#| label: fig-atlas-catnum-metricas-pca
+#| fig-cap: "Atlas categórico + numérico · Varias métricas: PCA"
+#| fig-width: 7.2
+#| fig-height: 5.2
+iris_pca <- prcomp(iris[, 1:4], scale. = TRUE)
+p_pca_catnum <- as_tibble(iris_pca$x[, 1:2]) |>
+  bind_cols(Species = iris$Species) |>
+  ggplot(aes(PC1, PC2, color = Species)) +
+  geom_point(size = 2.3, alpha = 0.76) +
+  scale_color_manual(values = iris_cols) +
+  labs(
+    title = "PCA",
+    subtitle = "Reduce dimensión para ver estructura global",
+    x = "PC1",
+    y = "PC2",
+    color = NULL
+  ) +
+  theme(legend.position = "top")
+p_pca_catnum
+```
+
+```{r}
+#| label: fig-atlas-catnum-metricas-corr
+#| fig-cap: "Atlas categórico + numérico · Varias métricas: correlogram"
+#| fig-width: 7.2
+#| fig-height: 5.6
+
+iris_corr <- iris |>
+  select(where(is.numeric)) |>
+  cor() |>
+  as.data.frame() |>
+  tibble::rownames_to_column("var1") |>
+  pivot_longer(-var1, names_to = "var2", values_to = "corr")
+
+p_corr_catnum <- ggplot(iris_corr, aes(var1, var2, fill = corr)) +
+  geom_tile(color = "white") +
+  geom_text(
+    aes(label = sprintf("%.2f", corr), color = abs(corr) > 0.65),
+    size = 3,
+    fontface = "bold"
+  ) +
+  scale_fill_gradient2(
+    low = "#8AA1D4",
+    mid = "white",
+    high = PAL_CAN,
+    limits = c(-1, 1)
+  ) +
+  scale_color_manual(values = c("TRUE" = PAL_DARK, "FALSE" = PAL_MID), guide = "none") +
+  coord_equal() +
+  labs(
+    title = "Correlogram",
+    subtitle = "Resume intensidad y signo de relaciones entre métricas",
+    x = NULL,
+    y = NULL
+  ) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+
+p_corr_catnum
+```
+
+## Perfiles resumidos por grupo
+
+Cuando cada grupo queda resumido en varias métricas, la pregunta deja de ser “cuánto vale una sola variable” y pasa a ser “qué forma tiene el perfil completo de cada categoría”. En ese punto conviene elegir una vista que ayude a comparar niveles, contrastes y patrones relativos entre métricas.
+
+```{r}
+#| label: fig-atlas-catnum-perfiles-dot
+#| fig-cap: "Atlas categórico + numérico · Perfiles: grouped scatter"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+iris_profile <- iris |>
+  group_by(Species) |>
+  summarise(across(where(is.numeric), mean), .groups = "drop") |>
+  pivot_longer(-Species, names_to = "metric", values_to = "value") |>
+  mutate(
+    metric = factor(metric, levels = c("Sepal.Length", "Sepal.Width", "Petal.Length", "Petal.Width"))
+  )
+
+ggplot(iris_profile, aes(value, metric, color = Species)) +
+  geom_point(position = position_dodge(width = 0.55), size = 3.4) +
+  scale_color_manual(values = iris_cols) +
+  labs(
+    title = "Grouped scatter",
+    subtitle = "Una alternativa ligera para comparar perfiles medios",
+    x = "Valor medio",
+    y = NULL,
+    color = NULL
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-perfiles-heat
+#| fig-cap: "Atlas categórico + numérico · Perfiles: heatmap"
+#| fig-width: 7.2
+#| fig-height: 5
+
+iris_profile <- iris |>
+  group_by(Species) |>
+  summarise(across(where(is.numeric), mean), .groups = "drop") |>
+  pivot_longer(-Species, names_to = "metric", values_to = "value") |>
+  mutate(
+    metric = factor(metric, levels = c("Sepal.Length", "Sepal.Width", "Petal.Length", "Petal.Width"))
+  )
+
+ggplot(iris_profile, aes(metric, Species, fill = value)) +
+  geom_tile(color = PAL_BG, linewidth = 0.6) +
+  geom_text(aes(label = number(value, accuracy = 0.1)), size = 3.1, color = PAL_DARK) +
+  scale_fill_viridis_c(option = "cividis") +
+  labs(
+    title = "Heatmap",
+    subtitle = "Resume rápido patrones altos y bajos por grupo",
+    x = NULL,
+    y = NULL,
+    fill = "Media"
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-perfiles-parallel
+#| fig-cap: "Atlas categórico + numérico · Perfiles: parallel plot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+iris_profile_scaled <- iris |>
+  group_by(Species) |>
+  summarise(across(where(is.numeric), mean), .groups = "drop") |>
+  pivot_longer(-Species, names_to = "metric", values_to = "value") |>
+  mutate(
+    metric = factor(metric, levels = c("Sepal.Length", "Sepal.Width", "Petal.Length", "Petal.Width"))
+  ) |>
+  group_by(metric) |>
+  mutate(value_scaled = rescale(value, to = c(0.2, 1))) |>
+  ungroup()
+
+ggplot(iris_profile_scaled, aes(metric, value_scaled, group = Species, color = Species)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.7) +
+  scale_color_manual(values = iris_cols) +
+  labs(
+    title = "Parallel plot",
+    subtitle = "Compara la forma relativa del perfil de cada grupo",
+    x = NULL,
+    y = "Escala relativa",
+    color = NULL
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-perfiles-spider
+#| fig-cap: "Atlas categórico + numérico · Perfiles: spider plot"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+spider_df <- iris |>
+  group_by(Species) |>
+  summarise(across(where(is.numeric), mean), .groups = "drop") |>
+  pivot_longer(-Species, names_to = "metric", values_to = "value") |>
+  mutate(
+    metric = factor(metric, levels = c("Sepal.Length", "Sepal.Width", "Petal.Length", "Petal.Width"))
+  ) |>
+  group_by(metric) |>
+  mutate(value_scaled = rescale(value, to = c(0.2, 1))) |>
+  ungroup() |>
+  group_by(Species) |>
+  arrange(metric) |>
+  group_modify(~ bind_rows(.x, slice(.x, 1))) |>
+  ungroup()
+
+ggplot(spider_df, aes(metric, value_scaled, group = Species, color = Species, fill = Species)) +
+  geom_polygon(alpha = 0.12, linewidth = 0.8) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2) +
+  coord_polar() +
+  scale_color_manual(values = iris_cols) +
+  scale_fill_manual(values = iris_cols) +
+  labs(
+    title = "Spider plot",
+    subtitle = "Impactante, pero compara peor que el paralelo o el heatmap",
+    x = NULL,
+    y = NULL,
+    color = NULL,
+    fill = NULL
+  ) +
+  theme(axis.text.y = element_blank())
+```
+
+```{r}
+#| label: fig-atlas-catnum-barras-flujo
+#| include: false
+
+drv_counts <- mpg |>
+  count(class, drv) |>
+  filter(class %in% c("compact", "midsize", "pickup", "suv")) |>
+  mutate(
+    class = str_to_title(class),
+    drv = recode(drv, `4` = "4x4", f = "Delantera", r = "Trasera")
+  )
+
+drv_cols <- setNames(cat_palette[1:3], c("4x4", "Delantera", "Trasera"))
+
+p_grouped_bar_cat <- ggplot(drv_counts, aes(class, n, fill = drv)) +
+  geom_col(position = position_dodge(width = 0.72), width = 0.65) +
+  scale_fill_manual(values = drv_cols) +
+  labs(
+    title = "Grouped barplot",
+    subtitle = "Compara magnitudes por subgrupo",
+    x = NULL,
+    y = "Conteo",
+    fill = "Tracción"
+  )
+
+p_stacked_bar_cat <- ggplot(drv_counts, aes(class, n, fill = drv)) +
+  geom_col(width = 0.68) +
+  scale_fill_manual(values = drv_cols) +
+  labs(
+    title = "Stacked barplot",
+    subtitle = "Sirve más para composición que para comparación fina",
+    x = NULL,
+    y = "Conteo",
+    fill = "Tracción"
+  )
+
+flow_df <- mpg |>
+  count(drv, class, name = "value") |>
+  filter(class %in% c("compact", "midsize", "pickup", "suv")) |>
+  mutate(
+    drv = recode(drv, `4` = "4x4", f = "Delantera", r = "Trasera"),
+    class = str_to_title(class)
+  )
+
+left_nodes <- flow_df |>
+  group_by(drv) |>
+  summarise(total = sum(value), .groups = "drop") |>
+  arrange(desc(total)) |>
+  mutate(ymax = cumsum(total), ymin = lag(ymax, default = 0))
+
+flow_left <- flow_df |>
+  left_join(left_nodes, by = "drv") |>
+  group_by(drv) |>
+  arrange(class, .by_group = TRUE) |>
+  mutate(
+    ymin0 = ymin + cumsum(lag(value, default = 0)),
+    ymax0 = ymin0 + value
+  ) |>
+  ungroup()
+
+right_nodes <- flow_df |>
+  group_by(class) |>
+  summarise(total = sum(value), .groups = "drop") |>
+  arrange(desc(total)) |>
+  mutate(ymax = cumsum(total), ymin = lag(ymax, default = 0))
+
+flow_pos <- flow_left |>
+  left_join(right_nodes |> rename(ymin_r = ymin, ymax_r = ymax), by = "class") |>
+  group_by(class) |>
+  arrange(drv, .by_group = TRUE) |>
+  mutate(
+    ymin1 = ymin_r + cumsum(lag(value, default = 0)),
+    ymax1 = ymin1 + value
+  ) |>
+  ungroup()
+
+flow_cols <- setNames(cat_palette[1:nrow(right_nodes)], right_nodes$class)
+
+sankey_polys <- pmap_dfr(
+  list(flow_pos$drv, flow_pos$class, flow_pos$ymin0, flow_pos$ymax0, flow_pos$ymin1, flow_pos$ymax1),
+  function(drv, class, ymin0, ymax0, ymin1, ymax1) {
+    make_flow_ribbon(0.1, 0.9, ymin0, ymax0, ymin1, ymax1) |>
+      mutate(drv = drv, class = class)
+  }
+)
+
+p_sankey_cat <- ggplot() +
+  geom_polygon(
+    data = sankey_polys,
+    aes(x, y, group = interaction(drv, class), fill = class),
+    alpha = 0.78,
+    color = NA
+  ) +
+  geom_rect(
+    data = left_nodes,
+    aes(xmin = 0.02, xmax = 0.08, ymin = ymin, ymax = ymax),
+    fill = PAL_NO,
+    color = PAL_BG
+  ) +
+  geom_rect(
+    data = right_nodes,
+    aes(xmin = 0.92, xmax = 0.98, ymin = ymin, ymax = ymax),
+    fill = PAL_NO,
+    color = PAL_BG
+  ) +
+  geom_text(
+    data = left_nodes,
+    aes(x = 0, y = (ymin + ymax) / 2, label = drv),
+    hjust = 1,
+    size = 3.1,
+    fontface = "bold",
+    color = PAL_DARK
+  ) +
+  geom_text(
+    data = right_nodes,
+    aes(x = 1, y = (ymin + ymax) / 2, label = class),
+    hjust = 0,
+    size = 3.1,
+    fontface = "bold",
+    color = PAL_DARK
+  ) +
+  scale_fill_manual(values = flow_cols, guide = "none") +
+  coord_cartesian(xlim = c(-0.16, 1.16), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Sankey",
+    subtitle = "Muestra cómo se reparte el total de una categoría origen a una destino"
+  )
+
+```
+
+```{r}
+#| label: fig-atlas-catnum-barras-grouped
+#| fig-cap: "Atlas categórico + numérico · Perfiles por grupo: grouped barplot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(drv_counts, aes(class, n, fill = drv)) +
+  geom_col(position = position_dodge(width = 0.72), width = 0.65) +
+  scale_fill_manual(values = drv_cols) +
+  labs(
+    title = "Grouped barplot",
+    subtitle = "Compara magnitudes por subgrupo",
+    x = NULL,
+    y = "Conteo",
+    fill = "Tracción"
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-barras-stacked
+#| fig-cap: "Atlas categórico + numérico · Perfiles por grupo: stacked barplot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(drv_counts, aes(class, n, fill = drv)) +
+  geom_col(width = 0.68) +
+  scale_fill_manual(values = drv_cols) +
+  labs(
+    title = "Stacked barplot",
+    subtitle = "Sirve más para composición que para comparación fina",
+    x = NULL,
+    y = "Conteo",
+    fill = "Tracción"
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-barras-sankey
+#| fig-cap: "Atlas categórico + numérico · Perfiles por grupo: sankey"
+#| fig-width: 7.8
+#| fig-height: 5.4
+
+ggplot() +
+  geom_polygon(
+    data = sankey_polys,
+    aes(x, y, group = interaction(drv, class), fill = class),
+    alpha = 0.78,
+    color = NA
+  ) +
+  geom_rect(
+    data = left_nodes,
+    aes(xmin = 0.02, xmax = 0.08, ymin = ymin, ymax = ymax),
+    fill = PAL_NO,
+    color = PAL_BG
+  ) +
+  geom_rect(
+    data = right_nodes,
+    aes(xmin = 0.92, xmax = 0.98, ymin = ymin, ymax = ymax),
+    fill = PAL_NO,
+    color = PAL_BG
+  ) +
+  geom_text(
+    data = left_nodes,
+    aes(x = 0, y = (ymin + ymax) / 2, label = drv),
+    hjust = 1,
+    size = 3.1,
+    fontface = "bold",
+    color = PAL_DARK
+  ) +
+  geom_text(
+    data = right_nodes,
+    aes(x = 1, y = (ymin + ymax) / 2, label = class),
+    hjust = 0,
+    size = 3.1,
+    fontface = "bold",
+    color = PAL_DARK
+  ) +
+  scale_fill_manual(values = flow_cols, guide = "none") +
+  coord_cartesian(xlim = c(-0.16, 1.16), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Sankey",
+    subtitle = "Muestra cómo se reparte el total de una categoría origen a una destino"
+  )
+```
+
+## Categorías ordenadas y trayectorias
+
+Si además de categorías y valores hay una secuencia natural, aparecen gráficos de serie y trayectorias.
+
+```{r}
+#| label: fig-atlas-catnum-orden
+#| include: false
+
+budget_wide <- tribble(
+  ~year, ~Vivienda, ~Salud, ~Educacion,
+  2018, 38, 22, 18,
+  2019, 40, 23, 19,
+  2020, 42, 25, 20,
+  2021, 43, 26, 22,
+  2022, 45, 28, 23,
+  2023, 47, 30, 24,
+  2024, 49, 33, 26
+) |>
+  mutate(year = as.integer(year))
+
+budget_long <- budget_wide |>
+  pivot_longer(-year, names_to = "area", values_to = "value") |>
+  mutate(area = recode(area, Educacion = "Educación"))
+
+budget_cols <- c("Vivienda" = PAL_MUST, "Salud" = PAL_CAN, "Educación" = "#8393C6")
+
+p_connected_cat <- ggplot(budget_wide, aes(Vivienda, Salud)) +
+  geom_path(color = PAL_MID, linewidth = 0.9) +
+  geom_point(aes(color = factor(year)), size = 3.1) +
+  geom_text(aes(label = year), nudge_y = 0.6, size = 3, color = PAL_DARK) +
+  scale_color_viridis_d(option = "cividis", guide = "none") +
+  labs(
+    title = "Connected scatter",
+    subtitle = "Sigue una trayectoria ordenada entre dos métricas",
+    x = "Vivienda",
+    y = "Salud"
+  )
+
+p_line_cat <- ggplot(budget_long, aes(year, value, color = area)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.4) +
+  scale_color_manual(values = budget_cols) +
+  labs(
+    title = "Line plot",
+    subtitle = "La vista más clara para comparar series ordenadas",
+    x = NULL,
+    y = "Valor",
+    color = NULL
+  )
+
+p_area_cat <- ggplot(filter(budget_long, area == "Salud"), aes(year, value)) +
+  geom_area(fill = PAL_CAN, alpha = 0.55, color = PAL_CAN, linewidth = 0.65) +
+  labs(
+    title = "Area",
+    subtitle = "Útil cuando quieres reforzar volumen acumulado",
+    x = NULL,
+    y = "Valor"
+  )
+
+p_stacked_area_cat <- ggplot(budget_long, aes(year, value, fill = area)) +
+  geom_area(alpha = 0.88, color = PAL_BG, linewidth = 0.25) +
+  scale_fill_manual(values = budget_cols) +
+  labs(
+    title = "Stacked area",
+    subtitle = "Muestra composición cambiante a lo largo del tiempo",
+    x = NULL,
+    y = "Valor",
+    fill = NULL
+  )
+
+stream_budget <- budget_long |>
+  group_by(year) |>
+  arrange(area, .by_group = TRUE) |>
+  mutate(
+    total = sum(value),
+    ymin = cumsum(lag(value, default = 0)) - total / 2,
+    ymax = ymin + value
+  ) |>
+  ungroup()
+
+p_stream_cat <- ggplot(stream_budget, aes(year, group = area, fill = area)) +
+  geom_ribbon(aes(ymin = ymin, ymax = ymax), alpha = 0.9, color = PAL_BG, linewidth = 0.25) +
+  scale_fill_manual(values = budget_cols) +
+  labs(
+    title = "Stream graph",
+    subtitle = "Variante expresiva del stacked area con base centrada",
+    x = NULL,
+    y = NULL,
+    fill = NULL
+  )
+
+```
+
+```{r}
+#| label: fig-atlas-catnum-orden-connected
+#| fig-cap: "Atlas categórico + numérico · Categorías ordenadas: connected scatter"
+#| fig-width: 7.2
+#| fig-height: 5
+
+ggplot(budget_wide, aes(Vivienda, Salud)) +
+  geom_path(color = PAL_MID, linewidth = 0.9) +
+  geom_point(aes(color = factor(year)), size = 3.1) +
+  geom_text(aes(label = year), nudge_y = 0.6, size = 3, color = PAL_DARK) +
+  scale_color_viridis_d(option = "cividis", guide = "none") +
+  labs(
+    title = "Connected scatter",
+    subtitle = "Sigue una trayectoria ordenada entre dos métricas",
+    x = "Vivienda",
+    y = "Salud"
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-orden-line
+#| fig-cap: "Atlas categórico + numérico · Categorías ordenadas: line plot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(budget_long, aes(year, value, color = area)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.4) +
+  scale_color_manual(values = budget_cols) +
+  labs(
+    title = "Line plot",
+    subtitle = "La vista más clara para comparar series ordenadas",
+    x = NULL,
+    y = "Valor",
+    color = NULL
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-orden-area
+#| fig-cap: "Atlas categórico + numérico · Categorías ordenadas: area plot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(filter(budget_long, area == "Salud"), aes(year, value)) +
+  geom_area(fill = PAL_CAN, alpha = 0.55, color = PAL_CAN, linewidth = 0.65) +
+  labs(
+    title = "Area",
+    subtitle = "Útil cuando quieres reforzar volumen acumulado",
+    x = NULL,
+    y = "Valor"
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-orden-stacked
+#| fig-cap: "Atlas categórico + numérico · Categorías ordenadas: stacked area"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(budget_long, aes(year, value, fill = area)) +
+  geom_area(alpha = 0.88, color = PAL_BG, linewidth = 0.25) +
+  scale_fill_manual(values = budget_cols) +
+  labs(
+    title = "Stacked area",
+    subtitle = "Muestra composición cambiante a lo largo del tiempo",
+    x = NULL,
+    y = "Valor",
+    fill = NULL
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-orden-stream
+#| fig-cap: "Atlas categórico + numérico · Categorías ordenadas: stream graph"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot(stream_budget, aes(year, group = area, fill = area)) +
+  geom_ribbon(aes(ymin = ymin, ymax = ymax), alpha = 0.9, color = PAL_BG, linewidth = 0.25) +
+  scale_fill_manual(values = budget_cols) +
+  labs(
+    title = "Stream graph",
+    subtitle = "Variante expresiva del stacked area con base centrada",
+    x = NULL,
+    y = NULL,
+    fill = NULL
+  ) +
+  theme(
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    legend.position = "top"
+  )
+```
+
+## Jerarquías, anidación y estructura
+
+Cuando las categorías se organizan en niveles, lo importante ya no es solo el tamaño sino también la pertenencia y la similitud entre grupos.
+
+```{r}
+#| label: fig-atlas-catnum-jerarquia
+#| include: false
+
+nest_counts <- mpg |>
+  count(manufacturer, class, name = "value") |>
+  filter(manufacturer %in% c("dodge", "ford", "toyota", "volkswagen"))
+
+manu_order <- nest_counts |>
+  group_by(manufacturer) |>
+  summarise(total = sum(value), .groups = "drop") |>
+  arrange(desc(total))
+
+manu_cols <- setNames(cat_palette[1:nrow(manu_order)], manu_order$manufacturer)
+
+inner_sun <- manu_order |>
+  mutate(
+    ymax = cumsum(total),
+    ymin = lag(ymax, default = 0),
+    xmin = 1,
+    xmax = 2
+  )
+
+outer_sun <- nest_counts |>
+  left_join(inner_sun |> select(manufacturer, ymin_inner = ymin), by = "manufacturer") |>
+  group_by(manufacturer) |>
+  arrange(desc(value), .by_group = TRUE) |>
+  mutate(
+    ymax = ymin_inner + cumsum(value),
+    ymin = lag(ymax, default = first(ymin_inner)),
+    xmin = 2,
+    xmax = 3
+  ) |>
+  ungroup()
+
+p_sunburst_cat <- ggplot() +
+  geom_rect(
+    data = inner_sun,
+    aes(ymin = ymin, ymax = ymax, xmin = xmin, xmax = xmax, fill = manufacturer),
+    color = PAL_BG,
+    linewidth = 0.7
+  ) +
+  geom_rect(
+    data = outer_sun,
+    aes(ymin = ymin, ymax = ymax, xmin = xmin, xmax = xmax, fill = manufacturer),
+    color = PAL_BG,
+    linewidth = 0.35,
+    alpha = 0.82
+  ) +
+  coord_polar(theta = "y") +
+  xlim(0, 3.2) +
+  scale_fill_manual(values = manu_cols, guide = "none") +
+  theme_void() +
+  labs(
+    title = "Sunburst",
+    subtitle = "Expone jerarquías en anillos concéntricos"
+  )
+
+profile_manufacturer <- mpg |>
+  count(manufacturer, class) |>
+  pivot_wider(names_from = class, values_from = n, values_fill = 0)
+
+hc_manufacturer <- hclust(
+  dist(scale(select(profile_manufacturer, -manufacturer))),
+  method = "ward.D2"
+)
+
+```
+
+```{r}
+#| label: fig-atlas-catnum-jerarquia-sunburst
+#| fig-cap: "Atlas categórico + numérico · Jerarquías: sunburst"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot() +
+  geom_rect(
+    data = inner_sun,
+    aes(ymin = ymin, ymax = ymax, xmin = xmin, xmax = xmax, fill = manufacturer),
+    color = PAL_BG,
+    linewidth = 0.7
+  ) +
+  geom_rect(
+    data = outer_sun,
+    aes(ymin = ymin, ymax = ymax, xmin = xmin, xmax = xmax, fill = manufacturer),
+    color = PAL_BG,
+    linewidth = 0.35,
+    alpha = 0.82
+  ) +
+  coord_polar(theta = "y") +
+  xlim(0, 3.2) +
+  scale_fill_manual(values = manu_cols, guide = "none") +
+  theme_void() +
+  labs(
+    title = "Sunburst",
+    subtitle = "Expone jerarquías en anillos concéntricos"
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-jerarquia-dendro
+#| fig-cap: "Atlas categórico + numérico · Jerarquías: dendrograma"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+plot(
+  hc_manufacturer,
+  labels = profile_manufacturer$manufacturer,
+  main = "Dendrograma",
+  xlab = "",
+  sub = ""
+)
+```
+
+## Adyacencia, enlaces y flujos entre categorías
+
+Esta familia aparece cuando el dato principal ya no es un valor aislado, sino una relación entre nodos o bloques.
+
+En esta sección se mantiene la familia visual completa porque sigue siendo útil ver cómo cambia la lectura cuando el enlace surge entre categorías con peso numérico. La versión de referencia para esta gramática visual reaparece más adelante en el atlas relacional, donde la estructura de red pasa a ser el foco principal.
+
+```{r}
+#| label: fig-atlas-catnum-adyacencia
+#| include: false
+
+link_df <- tribble(
+  ~from,         ~to,            ~value,
+  "Ventas",      "Marketing",    8,
+  "Ventas",      "Soporte",      5,
+  "Marketing",   "Producto",     6,
+  "Producto",    "Operaciones",  7,
+  "Soporte",     "Producto",     3,
+  "Operaciones", "Finanzas",     5,
+  "Soporte",     "Finanzas",     2
+)
+
+nodes <- tibble(name = unique(c(link_df$from, link_df$to)))
+
+adj_long <- bind_rows(
+  link_df,
+  transmute(link_df, from = to, to = from, value = value)
+) |>
+  complete(from = nodes$name, to = nodes$name, fill = list(value = 0))
+
+p_adj_heat <- ggplot(adj_long, aes(from, to, fill = value)) +
+  geom_tile(color = PAL_BG, linewidth = 0.6) +
+  geom_text(
+    aes(label = if_else(value == 0, "", as.character(value))),
+    size = 3,
+    color = PAL_DARK
+  ) +
+  scale_fill_gradient(low = "#EFE3C8", high = PAL_MUST) +
+  coord_equal() +
+  labs(
+    title = "Heatmap de adyacencia",
+    subtitle = "Hace legible una matriz de conexiones",
+    x = NULL,
+    y = NULL,
+    fill = "Peso"
+  ) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+
+nodes_line <- nodes |>
+  mutate(x = seq_len(n()), y = 0)
+
+arc_df <- link_df |>
+  left_join(nodes_line, by = c("from" = "name")) |>
+  rename(x0 = x, y0 = y) |>
+  left_join(nodes_line, by = c("to" = "name")) |>
+  rename(x1 = x, y1 = y)
+
+p_arc_cat <- ggplot() +
+  geom_curve(
+    data = arc_df,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value, color = from),
+    curvature = 0.28,
+    alpha = 0.55
+  ) +
+  geom_point(data = nodes_line, aes(x, y), size = 3.4, color = PAL_DARK) +
+  geom_text(data = nodes_line, aes(x, y - 0.1, label = name), size = 3, fontface = "bold") +
+  scale_color_manual(values = setNames(cat_palette[1:nrow(nodes)], nodes$name)) +
+  scale_linewidth(range = c(0.7, 2.1), guide = "none") +
+  coord_cartesian(ylim = c(-0.16, 0.38), clip = "off") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(
+    title = "Arc",
+    subtitle = "Útil cuando los nodos tienen un orden lineal"
+  )
+
+nodes_circle <- nodes |>
+  mutate(
+    angle = seq(pi / 2, pi / 2 + 2 * pi - 2 * pi / n(), length.out = n()),
+    x = cos(angle),
+    y = sin(angle)
+  )
+
+chord_df <- link_df |>
+  left_join(nodes_circle, by = c("from" = "name")) |>
+  rename(x0 = x, y0 = y) |>
+  left_join(nodes_circle, by = c("to" = "name")) |>
+  rename(x1 = x, y1 = y)
+
+p_chord_cat <- ggplot() +
+  geom_curve(
+    data = chord_df,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value, color = from),
+    curvature = 0.23,
+    alpha = 0.5
+  ) +
+  geom_point(data = nodes_circle, aes(x, y), size = 3.5, color = PAL_DARK) +
+  geom_text(
+    data = nodes_circle,
+    aes(1.18 * x, 1.18 * y, label = name),
+    size = 2.9,
+    fontface = "bold"
+  ) +
+  scale_color_manual(values = setNames(cat_palette[1:nrow(nodes)], nodes$name)) +
+  scale_linewidth(range = c(0.7, 2.2), guide = "none") +
+  coord_equal(clip = "off") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(
+    title = "Chord",
+    subtitle = "Versión circular para enfatizar conectividad global"
+  )
+
+net_pos <- tibble(
+  name = c("Ventas", "Marketing", "Producto", "Operaciones", "Soporte", "Finanzas"),
+  x = c(0.0, 1.0, 1.8, 2.5, 0.6, 3.1),
+  y = c(0.7, 1.7, 0.8, -0.1, -0.7, 0.2)
+)
+
+network_df <- link_df |>
+  left_join(net_pos, by = c("from" = "name")) |>
+  rename(x0 = x, y0 = y) |>
+  left_join(net_pos, by = c("to" = "name")) |>
+  rename(x1 = x, y1 = y)
+
+p_network_cat <- ggplot() +
+  geom_segment(
+    data = network_df,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value),
+    color = alpha(PAL_MID, 0.7)
+  ) +
+  geom_point(
+    data = net_pos,
+    aes(x, y),
+    size = 7,
+    color = PAL_BG,
+    fill = PAL_MUST,
+    shape = 21,
+    stroke = 1
+  ) +
+  geom_text(
+    data = net_pos,
+    aes(x, y, label = name),
+    size = 3,
+    fontface = "bold",
+    color = PAL_DARK
+  ) +
+  scale_linewidth(range = c(0.7, 2.4), guide = "none") +
+  theme_void() +
+  labs(
+    title = "Network",
+    subtitle = "La opción más directa cuando la relación es el dato principal"
+  )
+
+```
+
+```{r}
+#| label: fig-atlas-catnum-adyacencia-heat
+#| fig-cap: "Atlas categórico + numérico · Adyacencia: heatmap"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot(adj_long, aes(from, to, fill = value)) +
+  geom_tile(color = PAL_BG, linewidth = 0.6) +
+  geom_text(
+    aes(label = if_else(value == 0, "", as.character(value))),
+    size = 3,
+    color = PAL_DARK
+  ) +
+  scale_fill_gradient(low = "#EFE3C8", high = PAL_MUST) +
+  coord_equal() +
+  labs(
+    title = "Heatmap de adyacencia",
+    subtitle = "Hace legible una matriz de conexiones",
+    x = NULL,
+    y = NULL,
+    fill = "Peso"
+  ) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+```
+
+```{r}
+#| label: fig-atlas-catnum-adyacencia-arc
+#| fig-cap: "Atlas categórico + numérico · Adyacencia: arc"
+#| fig-width: 7.2
+#| fig-height: 3.9
+
+ggplot() +
+  geom_curve(
+    data = arc_df,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value, color = from),
+    curvature = 0.28,
+    alpha = 0.55
+  ) +
+  geom_point(data = nodes_line, aes(x, y), size = 3.4, color = PAL_DARK) +
+  geom_text(data = nodes_line, aes(x, y - 0.1, label = name), size = 3, fontface = "bold") +
+  scale_color_manual(values = setNames(cat_palette[1:nrow(nodes)], nodes$name)) +
+  scale_linewidth(range = c(0.7, 2.1), guide = "none") +
+  coord_cartesian(ylim = c(-0.16, 0.38), clip = "off") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(
+    title = "Arc",
+    subtitle = "Útil cuando los nodos tienen un orden lineal"
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-adyacencia-chord
+#| fig-cap: "Atlas categórico + numérico · Adyacencia: chord"
+#| fig-width: 7.2
+#| fig-height: 5.4
+
+ggplot() +
+  geom_curve(
+    data = chord_df,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value, color = from),
+    curvature = 0.23,
+    alpha = 0.5
+  ) +
+  geom_point(data = nodes_circle, aes(x, y), size = 3.5, color = PAL_DARK) +
+  geom_text(
+    data = nodes_circle,
+    aes(1.18 * x, 1.18 * y, label = name),
+    size = 2.9,
+    fontface = "bold"
+  ) +
+  scale_color_manual(values = setNames(cat_palette[1:nrow(nodes)], nodes$name)) +
+  scale_linewidth(range = c(0.7, 2.2), guide = "none") +
+  coord_equal(clip = "off") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(
+    title = "Chord",
+    subtitle = "Versión circular para enfatizar conectividad global"
+  )
+```
+
+```{r}
+#| label: fig-atlas-catnum-adyacencia-network
+#| fig-cap: "Atlas categórico + numérico · Adyacencia: network"
+#| fig-width: 7.2
+#| fig-height: 5
+
+ggplot() +
+  geom_segment(
+    data = network_df,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value),
+    color = alpha(PAL_MID, 0.7)
+  ) +
+  geom_point(
+    data = net_pos,
+    aes(x, y),
+    size = 7,
+    color = PAL_BG,
+    fill = PAL_MUST,
+    shape = 21,
+    stroke = 1
+  ) +
+  geom_text(
+    data = net_pos,
+    aes(x, y, label = name),
+    size = 3,
+    fontface = "bold",
+    color = PAL_DARK
+  ) +
+  scale_linewidth(range = c(0.7, 2.4), guide = "none") +
+  theme_void() +
+  labs(
+    title = "Network",
+    subtitle = "La opción más directa cuando la relación es el dato principal"
+  )
+```
+
+## Cómo leer este segundo atlas
+
+La clave aquí es no duplicar decisiones: si el gráfico ya aparece en el atlas numérico o en el categórico, úsalo con el mismo criterio. Lo que cambia es la mezcla de variable discreta + valor.
+
+`Primera opción` en categórico + numérico:
+
+-   `barplot` y `lollipop` cuando cada categoría ya está resumida en un valor.
+-   `boxplot` cuando cada grupo contiene varias observaciones.
+-   `grouped scatter` o `heatmap` cuando comparas varias métricas o subgrupos.
+-   `line plot` cuando hay orden temporal o secuencial.
+-   `treemap` o `stacked barplot` cuando la composición es parte central del mensaje.
+
+`Especializados` en categórico + numérico:
+
+-   `waffle`, `pie`, `doughnut`, `word cloud` y `circular packing` como recursos más expresivos que analíticos.
+-   `violin`, `ridgeline`, `density` e `histogram` cuando necesitas forma completa de la distribución.
+-   `parallel plot`, `spider plot`, `PCA` y `correlogram` cuando el perfil multivariado es más importante que una sola medida.
+-   `connected scatter`, `area`, `stacked area` y `stream graph` cuando además del valor importa trayectoria o acumulación.
+-   `sunburst`, `dendrogram`, `arc`, `chord`, `network` y `sankey` cuando el dato ya empieza a comportarse como jerarquía o red.
+
+::: callout-tip
+## Regla de decisión
+
+En datos categóricos con valor numérico, decide primero si necesitas comparar, componer, perfilar, ordenar, anidar o conectar. Esa decisión reduce mucho más el espacio de opciones que empezar buscando un `geom`.
+:::
+
+# 13 · Atlas de gráficos categóricos
+
+La imagen nueva separa un caso que suele mezclarse con demasiada facilidad: datos puramente categóricos. Aquí la pregunta ya no es “¿cuántas continuas tengo?”, sino “¿quiero comparar categorías, mostrar solapamiento, revelar jerarquías, perfilar subgrupos o enseñar conexiones?”.
+
+También conviene notar que varios gráficos se repiten respecto a la sección anterior. Eso no es un error: un mismo recurso visual puede servir tanto para perfiles categórico-numéricos como para estructuras enteramente categóricas. Aquí la diferencia es que el foco ya no está en el valor numérico, sino en la organización de categorías, pertenencias y relaciones discretas.
+
+## Una sola variable categórica
+
+Cuando solo quieres comparar frecuencias o proporciones, el repertorio base incluye barras, lollipops, waffles y varias alternativas de composición.
+
+```{r}
+#| label: fig-atlas-categ-una-a
+#| include: false
+
+cut_counts <- ggplot2::diamonds |>
+  count(cut, sort = TRUE) |>
+  mutate(
+    cut = as.character(cut),
+    prop = n / sum(n)
+  )
+
+cut_cols <- setNames(cat_palette[seq_len(nrow(cut_counts))], cut_counts$cut)
+
+waffle_cut <- cut_counts |>
+  mutate(tiles = round(prop * 100)) |>
+  uncount(tiles) |>
+  mutate(
+    tile = row_number() - 1,
+    col = tile %% 10,
+    row = tile %/% 10
+  )
+
+p_waffle_categ <- ggplot(waffle_cut, aes(col, -row, fill = cut)) +
+  geom_tile(color = PAL_BG, linewidth = 0.35) +
+  scale_fill_manual(values = cut_cols) +
+  coord_equal() +
+  theme_void() +
+  labs(
+    title = "Waffle",
+    subtitle = "Convierte proporciones en una cuadrícula comparable",
+    fill = NULL
+  ) +
+  theme(legend.position = "right")
+
+p_bar_categ <- ggplot(cut_counts |> arrange(n), aes(n, fct_reorder(cut, n), fill = cut)) +
+  geom_col(width = 0.72, show.legend = FALSE) +
+  scale_fill_manual(values = cut_cols) +
+  labs(
+    title = "Barplot",
+    subtitle = "La mejor referencia cuando importa comparar magnitudes",
+    x = "Frecuencia",
+    y = NULL
+  ) +
+  theme(panel.grid.major.y = element_blank())
+
+p_lollipop_categ <- ggplot(cut_counts |> arrange(n), aes(n, fct_reorder(cut, n), color = cut)) +
+  geom_segment(
+    aes(x = 0, xend = n, y = cut, yend = cut),
+    linewidth = 1.2,
+    color = PAL_GRID
+  ) +
+  geom_point(size = 4.4, show.legend = FALSE) +
+  scale_color_manual(values = cut_cols) +
+  labs(
+    title = "Lollipop",
+    subtitle = "Reduce tinta y sigue siendo preciso para ranking",
+    x = "Frecuencia",
+    y = NULL
+  ) +
+  theme(panel.grid.major.y = element_blank())
+
+word_cut <- cut_counts |>
+  mutate(
+    x = c(-1.0, 0.85, -0.25, 1.1, -0.85),
+    y = c(0.9, 0.82, 0.1, -0.6, -0.85),
+    angle = c(0, 0, -8, 10, 0)
+  )
+
+p_word_categ <- ggplot(word_cut, aes(x, y, label = cut, size = n, color = cut, angle = angle)) +
+  geom_text(fontface = "bold", show.legend = FALSE) +
+  scale_color_manual(values = cut_cols) +
+  scale_size(range = c(10, 19)) +
+  coord_equal() +
+  theme_void() +
+  labs(
+    title = "Word cloud",
+    subtitle = "Útil como recurso expresivo, no como herramienta precisa"
+  )
+
+```
+
+```{r}
+#| label: fig-atlas-categ-una-b
+#| include: false
+
+pack_cut <- cut_counts |>
+  mutate(
+    x = c(0.25, 0.58, 0.8, 0.39, 0.67),
+    y = c(0.7, 0.76, 0.55, 0.3, 0.2),
+    r = rescale(sqrt(n), to = c(0.13, 0.27))
+  )
+
+pack_cut_poly <- pmap_dfr(
+  list(pack_cut$cut, pack_cut$x, pack_cut$y, pack_cut$r),
+  function(cut, x0, y0, r) {
+    circle_polygon(x0, y0, r) |>
+      mutate(cut = cut)
+  }
+)
+
+p_cpack_categ <- ggplot() +
+  geom_polygon(
+    data = pack_cut_poly,
+    aes(x, y, group = cut, fill = cut),
+    color = PAL_BG,
+    linewidth = 0.6
+  ) +
+  geom_text(
+    data = pack_cut,
+    aes(x, y, label = cut),
+    size = 3,
+    fontface = "bold",
+    color = PAL_DARK
+  ) +
+  scale_fill_manual(values = cut_cols, guide = "none") +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Circular packing",
+    subtitle = "Sugiere parte-todo, pero dificulta la comparación fina"
+  )
+
+p_doughnut_categ <- ggplot(cut_counts, aes(x = 2, y = n, fill = cut)) +
+  geom_col(width = 0.9, color = PAL_BG) +
+  coord_polar(theta = "y") +
+  xlim(0.5, 2.5) +
+  scale_fill_manual(values = cut_cols, guide = "none") +
+  theme_void() +
+  labs(
+    title = "Doughnut",
+    subtitle = "Mejor solo con pocas categorías y mensajes simples"
+  )
+
+p_pie_categ <- ggplot(cut_counts, aes(x = 1, y = n, fill = cut)) +
+  geom_col(width = 1, color = PAL_BG) +
+  coord_polar(theta = "y") +
+  scale_fill_manual(values = cut_cols, guide = "none") +
+  theme_void() +
+  labs(
+    title = "Pie",
+    subtitle = "Solo funciona bien cuando las partes son muy distintas"
+  )
+
+tree_cut <- simple_treemap_layout(
+  cut_counts |>
+    transmute(cut = as.character(cut), value = n),
+  value_col = "value"
+)
+
+p_tree_categ <- ggplot(tree_cut) +
+  geom_rect(
+    aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = cut),
+    color = PAL_BG,
+    linewidth = 0.7
+  ) +
+  geom_text(
+    aes(x = (xmin + xmax) / 2, y = (ymin + ymax) / 2, label = cut),
+    size = 3.1,
+    fontface = "bold",
+    color = PAL_DARK
+  ) +
+  scale_fill_manual(values = cut_cols, guide = "none") +
+  coord_equal(expand = FALSE) +
+  theme_void() +
+  labs(
+    title = "Treemap",
+    subtitle = "Compacta muchas partes y aprovecha mejor el espacio"
+  )
+
+```
+
+```{r}
+#| label: fig-atlas-categ-una-waffle
+#| fig-cap: "Atlas categórico · Una variable: waffle"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot(waffle_cut, aes(col, -row, fill = cut)) +
+  geom_tile(color = PAL_BG, linewidth = 0.35) +
+  scale_fill_manual(values = cut_cols) +
+  coord_equal() +
+  labs(
+    title = "Waffle",
+    subtitle = "Convierte proporciones en una retícula de 100 unidades",
+    x = NULL,
+    y = NULL,
+    fill = NULL
+  ) +
+  theme_void() +
+  theme(legend.position = "right")
+```
+
+```{r}
+#| label: fig-atlas-categ-una-bar
+#| fig-cap: "Atlas categórico · Una variable: barplot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(cut_counts |> arrange(n), aes(n, fct_reorder(cut, n), fill = cut)) +
+  geom_col(width = 0.72, show.legend = FALSE) +
+  scale_fill_manual(values = cut_cols) +
+  labs(
+    title = "Barplot",
+    subtitle = "La referencia principal para comparar categorías",
+    x = "Frecuencia",
+    y = NULL
+  ) +
+  theme(panel.grid.major.y = element_blank())
+```
+
+```{r}
+#| label: fig-atlas-categ-una-lollipop
+#| fig-cap: "Atlas categórico · Una variable: lollipop"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(cut_counts |> arrange(n), aes(n, fct_reorder(cut, n), color = cut)) +
+  geom_segment(
+    aes(x = 0, xend = n, y = cut, yend = cut),
+    linewidth = 1.2,
+    color = PAL_GRID
+  ) +
+  geom_point(size = 4.4, show.legend = FALSE) +
+  scale_color_manual(values = cut_cols) +
+  labs(
+    title = "Lollipop",
+    subtitle = "Reduce tinta y sigue siendo preciso para ranking",
+    x = "Frecuencia",
+    y = NULL
+  ) +
+  theme(panel.grid.major.y = element_blank())
+```
+
+```{r}
+#| label: fig-atlas-categ-una-word
+#| fig-cap: "Atlas categórico · Una variable: word cloud"
+#| fig-width: 7.2
+#| fig-height: 5
+
+ggplot(word_cut, aes(x, y, label = cut, size = n, color = cut, angle = angle)) +
+  geom_text(fontface = "bold", show.legend = FALSE) +
+  scale_color_manual(values = cut_cols) +
+  scale_size(range = c(10, 19)) +
+  coord_equal() +
+  theme_void() +
+  labs(
+    title = "Word cloud",
+    subtitle = "Útil como recurso expresivo, no como herramienta precisa"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-una-packing
+#| fig-cap: "Atlas categórico · Una variable: circular packing"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot() +
+  geom_polygon(
+    data = pack_cut_poly,
+    aes(x, y, group = cut, fill = cut),
+    color = PAL_BG,
+    linewidth = 0.6
+  ) +
+  geom_text(
+    data = pack_cut,
+    aes(x, y, label = cut),
+    size = 3,
+    fontface = "bold",
+    color = PAL_DARK
+  ) +
+  scale_fill_manual(values = cut_cols, guide = "none") +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Circular packing",
+    subtitle = "Sugiere parte-todo, pero dificulta la comparación fina"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-una-doughnut
+#| fig-cap: "Atlas categórico · Una variable: doughnut"
+#| fig-width: 7.2
+#| fig-height: 5
+
+ggplot(cut_counts, aes(x = 2, y = n, fill = cut)) +
+  geom_col(width = 0.9, color = PAL_BG) +
+  coord_polar(theta = "y") +
+  xlim(0.5, 2.5) +
+  scale_fill_manual(values = cut_cols, guide = "none") +
+  theme_void() +
+  labs(
+    title = "Doughnut",
+    subtitle = "Mejor solo con pocas categorías y mensajes simples"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-una-pie
+#| fig-cap: "Atlas categórico · Una variable: pie"
+#| fig-width: 7.2
+#| fig-height: 5
+
+ggplot(cut_counts, aes(x = 1, y = n, fill = cut)) +
+  geom_col(width = 1, color = PAL_BG) +
+  coord_polar(theta = "y") +
+  scale_fill_manual(values = cut_cols, guide = "none") +
+  theme_void() +
+  labs(
+    title = "Pie",
+    subtitle = "Solo funciona bien cuando las partes son muy distintas"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-una-treemap
+#| fig-cap: "Atlas categórico · Una variable: treemap"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot(tree_cut) +
+  geom_rect(
+    aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = cut),
+    color = PAL_BG,
+    linewidth = 0.7
+  ) +
+  geom_text(
+    aes(x = (xmin + xmax) / 2, y = (ymin + ymax) / 2, label = cut),
+    size = 3.1,
+    fontface = "bold",
+    color = PAL_DARK
+  ) +
+  scale_fill_manual(values = cut_cols, guide = "none") +
+  coord_equal(expand = FALSE) +
+  theme_void() +
+  labs(
+    title = "Treemap",
+    subtitle = "Compacta muchas partes y aprovecha mejor el espacio"
+  )
+```
+
+## Dos listas independientes
+
+Cuando las categorías forman conjuntos con solapamiento, el caso más clásico es el diagrama de Venn.
+
+```{r}
+#| label: fig-atlas-categ-venn
+#| fig-cap: "Dos listas independientes: diagrama de Venn"
+#| fig-width: 7.4
+#| fig-height: 5.2
+
+venn_a <- circle_polygon(-0.38, 0, 0.72) |>
+  mutate(set = "Exploración")
+
+venn_b <- circle_polygon(0.38, 0, 0.72) |>
+  mutate(set = "Comunicación")
+
+venn_df <- bind_rows(venn_a, venn_b)
+
+ggplot() +
+  geom_polygon(
+    data = venn_df,
+    aes(x, y, group = set, fill = set),
+    alpha = 0.45,
+    color = PAL_MID,
+    linewidth = 1
+  ) +
+  annotate("text", x = -0.86, y = 0.88, label = "Exploración", fontface = "bold", color = PAL_DARK, size = 4) +
+  annotate("text", x = 0.86, y = 0.88, label = "Comunicación", fontface = "bold", color = PAL_DARK, size = 4) +
+  annotate("text", x = -0.52, y = 0, label = "18", color = PAL_DARK, size = 6, fontface = "bold") +
+  annotate("text", x = 0.52, y = 0, label = "14", color = PAL_DARK, size = 6, fontface = "bold") +
+  annotate("text", x = 0, y = 0, label = "7", color = PAL_DARK, size = 6, fontface = "bold") +
+  scale_fill_manual(values = c("Exploración" = PAL_CAN, "Comunicación" = "#C96C5B")) +
+  coord_equal() +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(
+    title = "Venn diagram",
+    subtitle = "Resume pertenencia compartida entre conjuntos categóricos"
+  )
+```
+
+## Categorías anidadas
+
+Si unas categorías contienen a otras, los gráficos jerárquicos pasan a ser más informativos que una simple tabla cruzada.
+
+```{r}
+#| label: fig-atlas-categ-nested-a
+#| include: false
+
+nested_counts <- mpg |>
+  count(manufacturer, class, name = "value") |>
+  filter(manufacturer %in% c("dodge", "ford", "toyota", "volkswagen")) |>
+  mutate(
+    manufacturer = str_to_title(manufacturer),
+    class = str_to_title(class)
+  )
+
+manu_totals <- nested_counts |>
+  group_by(manufacturer) |>
+  summarise(total = sum(value), .groups = "drop") |>
+  arrange(desc(total))
+
+manu_cols <- setNames(cat_palette[seq_len(nrow(manu_totals))], manu_totals$manufacturer)
+
+p_nested_bar <- ggplot(nested_counts, aes(manufacturer, value, fill = class)) +
+  geom_col(width = 0.72) +
+  labs(
+    title = "Barplot anidado",
+    subtitle = "Primero compara el total y luego la composición interna",
+    x = NULL,
+    y = "Conteo",
+    fill = "Clase"
+  )
+
+pack_nested <- nested_counts |>
+  group_by(manufacturer) |>
+  mutate(
+    x = case_match(
+      manufacturer,
+      "Dodge" ~ 0.22,
+      "Ford" ~ 0.72,
+      "Toyota" ~ 0.28,
+      "Volkswagen" ~ 0.73
+    ),
+    y = case_match(
+      manufacturer,
+      "Dodge" ~ 0.73,
+      "Ford" ~ 0.74,
+      "Toyota" ~ 0.26,
+      "Volkswagen" ~ 0.24
+    ),
+    base_r = case_match(
+      manufacturer,
+      "Dodge" ~ 0.18,
+      "Ford" ~ 0.18,
+      "Toyota" ~ 0.16,
+      "Volkswagen" ~ 0.15
+    )
+  ) |>
+  arrange(desc(value), .by_group = TRUE) |>
+  mutate(
+    dx = c(-0.07, 0.06, -0.01, 0.08, -0.08, 0.02, 0.06, -0.04)[seq_len(n())],
+    dy = c(0.05, 0.03, -0.06, -0.03, 0.09, -0.02, 0.06, -0.07)[seq_len(n())],
+    r = rescale(sqrt(value), to = c(0.035, 0.11))
+  ) |>
+  ungroup()
+
+pack_nested_poly <- pmap_dfr(
+  list(pack_nested$class, pack_nested$x + pack_nested$dx, pack_nested$y + pack_nested$dy, pack_nested$r, pack_nested$manufacturer),
+  function(class, x0, y0, r, manufacturer) {
+    circle_polygon(x0, y0, r) |>
+      mutate(class = class, manufacturer = manufacturer)
+  }
+)
+
+p_nested_pack <- ggplot() +
+  geom_polygon(
+    data = pack_nested_poly,
+    aes(x, y, group = interaction(manufacturer, class), fill = manufacturer),
+    color = PAL_BG,
+    linewidth = 0.4,
+    alpha = 0.8
+  ) +
+  geom_text(
+    data = distinct(pack_nested, manufacturer, x, y),
+    aes(x, y, label = manufacturer),
+    color = PAL_DARK,
+    fontface = "bold",
+    size = 3.2
+  ) +
+  scale_fill_manual(values = manu_cols, guide = "none") +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Circular packing anidado",
+    subtitle = "Expone inclusión jerárquica, no comparación exacta"
+  )
+
+inner_nested <- manu_totals |>
+  mutate(
+    ymax = cumsum(total),
+    ymin = lag(ymax, default = 0),
+    xmin = 1,
+    xmax = 2
+  )
+
+outer_nested <- nested_counts |>
+  left_join(inner_nested |> select(manufacturer, ymin_inner = ymin), by = "manufacturer") |>
+  group_by(manufacturer) |>
+  arrange(desc(value), .by_group = TRUE) |>
+  mutate(
+    ymax = ymin_inner + cumsum(value),
+    ymin = lag(ymax, default = first(ymin_inner)),
+    xmin = 2,
+    xmax = 3
+  ) |>
+  ungroup()
+
+p_nested_sun <- ggplot() +
+  geom_rect(
+    data = inner_nested,
+    aes(ymin = ymin, ymax = ymax, xmin = xmin, xmax = xmax, fill = manufacturer),
+    color = PAL_BG,
+    linewidth = 0.7
+  ) +
+  geom_rect(
+    data = outer_nested,
+    aes(ymin = ymin, ymax = ymax, xmin = xmin, xmax = xmax, fill = manufacturer),
+    color = PAL_BG,
+    linewidth = 0.3,
+    alpha = 0.82
+  ) +
+  coord_polar(theta = "y") +
+  xlim(0, 3.2) +
+  scale_fill_manual(values = manu_cols, guide = "none") +
+  theme_void() +
+  labs(
+    title = "Sunburst",
+    subtitle = "Jerarquía expresada en anillos concéntricos"
+  )
+
+tree_nested <- simple_treemap_layout(
+  manu_totals |>
+    transmute(manufacturer, value = total),
+  value_col = "value"
+)
+
+p_nested_tree <- ggplot(tree_nested) +
+  geom_rect(
+    aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = manufacturer),
+    color = PAL_BG,
+    linewidth = 0.8
+  ) +
+  geom_text(
+    aes(x = (xmin + xmax) / 2, y = (ymin + ymax) / 2, label = manufacturer),
+    size = 3.2,
+    fontface = "bold",
+    color = PAL_DARK
+  ) +
+  scale_fill_manual(values = manu_cols, guide = "none") +
+  coord_equal(expand = FALSE) +
+  theme_void() +
+  labs(
+    title = "Treemap",
+    subtitle = "Compacta jerarquías con muy buen uso del área"
+  )
+
+```
+
+```{r}
+#| label: fig-atlas-categ-nested-b
+#| fig-cap: "Categorías anidadas: dendrograma"
+#| fig-width: 8
+#| fig-height: 5.4
+
+profile_nested <- nested_counts |>
+  select(manufacturer, class, value) |>
+  pivot_wider(names_from = class, values_from = value, values_fill = 0)
+
+hc_nested <- hclust(
+  dist(scale(select(profile_nested, -manufacturer))),
+  method = "ward.D2"
+)
+
+plot(
+  hc_nested,
+  labels = profile_nested$manufacturer,
+  main = "Dendrograma de similitud entre fabricantes",
+  xlab = "",
+  sub = ""
+)
+```
+
+## Subgrupos y tablas cruzadas
+
+Cuando las categorías se cruzan entre sí, puedes leer patrones con puntos, tiles, barras y diagramas de perfil.
+
+```{r}
+#| label: fig-atlas-categ-subgroup-a
+#| include: false
+
+cross_counts <- mpg |>
+  count(class, drv, name = "value") |>
+  filter(class %in% c("compact", "midsize", "pickup", "suv")) |>
+  mutate(
+    class = str_to_title(class),
+    drv = recode(drv, `4` = "4x4", f = "Delantera", r = "Trasera")
+  )
+
+drv_cols2 <- setNames(cat_palette[1:3], c("4x4", "Delantera", "Trasera"))
+
+p_grouped_scatter_cat <- ggplot(cross_counts, aes(value, class, color = drv)) +
+  geom_point(size = 4, alpha = 0.85, position = position_dodge(width = 0.45)) +
+  scale_color_manual(values = drv_cols2) +
+  labs(
+    title = "Grouped scatter",
+    subtitle = "Comparación ligera entre subgrupos",
+    x = "Conteo",
+    y = NULL,
+    color = "Tracción"
+  )
+
+p_heat_cross <- ggplot(cross_counts, aes(drv, class, fill = value)) +
+  geom_tile(color = PAL_BG, linewidth = 0.6) +
+  geom_text(aes(label = value), color = PAL_DARK, fontface = "bold", size = 4) +
+  scale_fill_gradient(low = "#F2E7D3", high = PAL_MUST) +
+  labs(
+    title = "Heatmap",
+    subtitle = "Hace visible una tabla cruzada en segundos",
+    x = NULL,
+    y = NULL,
+    fill = "Conteo"
+  )
+
+p_lollipop_cross <- ggplot(cross_counts, aes(value, class, color = drv)) +
+  geom_segment(
+    aes(x = 0, xend = value, y = class, yend = class),
+    linewidth = 1.1,
+    color = PAL_GRID,
+    position = position_dodge(width = 0.45)
+  ) +
+  geom_point(size = 3.8, position = position_dodge(width = 0.45)) +
+  scale_color_manual(values = drv_cols2) +
+  labs(
+    title = "Lollipop por subgrupo",
+    subtitle = "Útil cuando quieres comparar pocos subgrupos por categoría",
+    x = "Conteo",
+    y = NULL,
+    color = "Tracción"
+  )
+
+```
+
+```{r}
+#| label: fig-atlas-categ-subgroup-b
+#| include: false
+
+profile_categ <- mpg |>
+  filter(manufacturer %in% c("dodge", "ford", "toyota", "volkswagen")) |>
+  count(manufacturer, drv, name = "value") |>
+  mutate(
+    manufacturer = str_to_title(manufacturer),
+    drv = recode(drv, `4` = "4x4", f = "Delantera", r = "Trasera")
+  )
+
+manu_cols2 <- setNames(cat_palette[1:4], c("Dodge", "Ford", "Toyota", "Volkswagen"))
+
+profile_scaled <- profile_categ |>
+  group_by(drv) |>
+  mutate(value_scaled = rescale(value, to = c(0.15, 1))) |>
+  ungroup()
+
+p_parallel_cat <- ggplot(profile_scaled, aes(drv, value_scaled, group = manufacturer, color = manufacturer)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.8) +
+  scale_color_manual(values = manu_cols2) +
+  labs(
+    title = "Parallel plot",
+    subtitle = "Compara el perfil relativo de cada categoría principal",
+    x = NULL,
+    y = "Escala relativa",
+    color = NULL
+  )
+
+spider_cat <- profile_scaled |>
+  group_by(manufacturer) |>
+  arrange(drv) |>
+  group_modify(~ bind_rows(.x, slice(.x, 1))) |>
+  ungroup()
+
+p_spider_cat <- ggplot(spider_cat, aes(drv, value_scaled, group = manufacturer, color = manufacturer, fill = manufacturer)) +
+  geom_polygon(alpha = 0.12, linewidth = 0.8) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.2) +
+  coord_polar() +
+  scale_color_manual(values = manu_cols2) +
+  scale_fill_manual(values = manu_cols2) +
+  labs(
+    title = "Spider plot",
+    subtitle = "Muy llamativo, menos preciso que el paralelo",
+    x = NULL,
+    y = NULL,
+    color = NULL,
+    fill = NULL
+  ) +
+  theme(axis.text.y = element_blank())
+
+p_grouped_bar_cat2 <- ggplot(profile_categ, aes(manufacturer, value, fill = drv)) +
+  geom_col(position = position_dodge(width = 0.72), width = 0.66) +
+  scale_fill_manual(values = drv_cols2) +
+  labs(
+    title = "Grouped barplot",
+    subtitle = "La opción robusta para comparación entre subgrupos",
+    x = NULL,
+    y = "Conteo",
+    fill = "Tracción"
+  )
+
+p_stacked_bar_cat2 <- ggplot(profile_categ, aes(manufacturer, value, fill = drv)) +
+  geom_col(width = 0.68) +
+  scale_fill_manual(values = drv_cols2) +
+  labs(
+    title = "Stacked barplot",
+    subtitle = "Sirve mejor para composición que para comparación fina",
+    x = NULL,
+    y = "Conteo",
+    fill = "Tracción"
+  )
+
+left_prof <- profile_categ |>
+  group_by(manufacturer) |>
+  summarise(total = sum(value), .groups = "drop") |>
+  arrange(desc(total)) |>
+  mutate(ymax = cumsum(total), ymin = lag(ymax, default = 0))
+
+flow_prof <- profile_categ |>
+  left_join(left_prof, by = "manufacturer") |>
+  group_by(manufacturer) |>
+  arrange(drv, .by_group = TRUE) |>
+  mutate(
+    ymin0 = ymin + cumsum(lag(value, default = 0)),
+    ymax0 = ymin0 + value
+  ) |>
+  ungroup()
+
+right_prof <- profile_categ |>
+  group_by(drv) |>
+  summarise(total = sum(value), .groups = "drop") |>
+  arrange(desc(total)) |>
+  mutate(ymax = cumsum(total), ymin = lag(ymax, default = 0))
+
+flow_prof2 <- flow_prof |>
+  left_join(right_prof |> rename(ymin_r = ymin, ymax_r = ymax), by = "drv") |>
+  group_by(drv) |>
+  arrange(manufacturer, .by_group = TRUE) |>
+  mutate(
+    ymin1 = ymin_r + cumsum(lag(value, default = 0)),
+    ymax1 = ymin1 + value
+  ) |>
+  ungroup()
+
+sankey_prof <- pmap_dfr(
+  list(flow_prof2$manufacturer, flow_prof2$drv, flow_prof2$ymin0, flow_prof2$ymax0, flow_prof2$ymin1, flow_prof2$ymax1),
+  function(manufacturer, drv, ymin0, ymax0, ymin1, ymax1) {
+    make_flow_ribbon(0.1, 0.9, ymin0, ymax0, ymin1, ymax1) |>
+      mutate(manufacturer = manufacturer, drv = drv)
+  }
+)
+
+p_sankey_categ <- ggplot() +
+  geom_polygon(
+    data = sankey_prof,
+    aes(x, y, group = interaction(manufacturer, drv), fill = manufacturer),
+    alpha = 0.78,
+    color = NA
+  ) +
+  geom_rect(data = left_prof, aes(xmin = 0.02, xmax = 0.08, ymin = ymin, ymax = ymax), fill = PAL_NO, color = PAL_BG) +
+  geom_rect(data = right_prof, aes(xmin = 0.92, xmax = 0.98, ymin = ymin, ymax = ymax), fill = PAL_NO, color = PAL_BG) +
+  geom_text(data = left_prof, aes(x = 0, y = (ymin + ymax) / 2, label = manufacturer), hjust = 1, size = 3, fontface = "bold") +
+  geom_text(data = right_prof, aes(x = 1, y = (ymin + ymax) / 2, label = drv), hjust = 0, size = 3, fontface = "bold") +
+  scale_fill_manual(values = manu_cols2, guide = "none") +
+  coord_cartesian(xlim = c(-0.16, 1.16), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Sankey diagram",
+    subtitle = "Muestra cómo se reparte cada categoría principal entre subgrupos"
+  )
+
+```
+
+## Adyacencia entre categorías
+
+Cuando el dato clave es la relación entre categorías, la familia cambia: aparecen `heatmap`, `arc`, `chord`, `network` y de nuevo `sankey`.
+
+La lógica visual es la misma que en el atlas categórico + numérico y vuelve a consolidarse después en el atlas relacional. Aquí conviene leer estos ejemplos como variantes categóricas de una familia común: cambia el tipo de dato, no la gramática base del gráfico.
+
+```{r}
+#| label: fig-atlas-categ-adyacencia
+#| include: false
+
+cat_links <- tribble(
+  ~from,        ~to,          ~value,
+  "Ventas",     "Marketing",  8,
+  "Ventas",     "Soporte",    5,
+  "Marketing",  "Producto",   6,
+  "Producto",   "Operaciones",7,
+  "Soporte",    "Producto",   3,
+  "Operaciones","Finanzas",   5,
+  "Soporte",    "Finanzas",   2
+)
+
+cat_nodes <- tibble(name = unique(c(cat_links$from, cat_links$to)))
+
+cat_adj <- bind_rows(
+  cat_links,
+  transmute(cat_links, from = to, to = from, value = value)
+) |>
+  complete(from = cat_nodes$name, to = cat_nodes$name, fill = list(value = 0))
+
+p_cat_adj_heat <- ggplot(cat_adj, aes(from, to, fill = value)) +
+  geom_tile(color = PAL_BG, linewidth = 0.6) +
+  geom_text(aes(label = if_else(value == 0, "", as.character(value))), size = 3, color = PAL_DARK) +
+  scale_fill_gradient(low = "#F0E5D2", high = PAL_MUST) +
+  coord_equal() +
+  labs(
+    title = "Heatmap de adyacencia",
+    subtitle = "La forma más rápida de leer una matriz de enlaces",
+    x = NULL,
+    y = NULL,
+    fill = "Peso"
+  ) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+
+cat_nodes_line <- cat_nodes |>
+  mutate(x = seq_len(n()), y = 0)
+
+cat_arc <- cat_links |>
+  left_join(cat_nodes_line, by = c("from" = "name")) |>
+  rename(x0 = x, y0 = y) |>
+  left_join(cat_nodes_line, by = c("to" = "name")) |>
+  rename(x1 = x, y1 = y)
+
+p_cat_arc <- ggplot() +
+  geom_curve(
+    data = cat_arc,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value, color = from),
+    curvature = 0.28,
+    alpha = 0.56
+  ) +
+  geom_point(data = cat_nodes_line, aes(x, y), size = 3.5, color = PAL_DARK) +
+  geom_text(data = cat_nodes_line, aes(x, y - 0.1, label = name), size = 3, fontface = "bold") +
+  scale_color_manual(values = setNames(cat_palette[1:nrow(cat_nodes)], cat_nodes$name)) +
+  scale_linewidth(range = c(0.7, 2.2), guide = "none") +
+  coord_cartesian(ylim = c(-0.16, 0.38), clip = "off") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(
+    title = "Arc",
+    subtitle = "Útil si los nodos tienen un orden lineal"
+  )
+
+cat_nodes_circle <- cat_nodes |>
+  mutate(
+    angle = seq(pi / 2, pi / 2 + 2 * pi - 2 * pi / n(), length.out = n()),
+    x = cos(angle),
+    y = sin(angle)
+  )
+
+cat_chord <- cat_links |>
+  left_join(cat_nodes_circle, by = c("from" = "name")) |>
+  rename(x0 = x, y0 = y) |>
+  left_join(cat_nodes_circle, by = c("to" = "name")) |>
+  rename(x1 = x, y1 = y)
+
+p_cat_chord <- ggplot() +
+  geom_curve(
+    data = cat_chord,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value, color = from),
+    curvature = 0.23,
+    alpha = 0.5
+  ) +
+  geom_point(data = cat_nodes_circle, aes(x, y), size = 3.6, color = PAL_DARK) +
+  geom_text(data = cat_nodes_circle, aes(1.18 * x, 1.18 * y, label = name), size = 2.9, fontface = "bold") +
+  scale_color_manual(values = setNames(cat_palette[1:nrow(cat_nodes)], cat_nodes$name)) +
+  scale_linewidth(range = c(0.7, 2.2), guide = "none") +
+  coord_equal(clip = "off") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(
+    title = "Chord",
+    subtitle = "Resalta conectividad global entre categorías"
+  )
+
+cat_pos <- tibble(
+  name = c("Ventas", "Marketing", "Producto", "Operaciones", "Soporte", "Finanzas"),
+  x = c(0.0, 1.0, 1.8, 2.5, 0.6, 3.1),
+  y = c(0.7, 1.7, 0.8, -0.1, -0.7, 0.2)
+)
+
+cat_network <- cat_links |>
+  left_join(cat_pos, by = c("from" = "name")) |>
+  rename(x0 = x, y0 = y) |>
+  left_join(cat_pos, by = c("to" = "name")) |>
+  rename(x1 = x, y1 = y)
+
+p_cat_network <- ggplot() +
+  geom_segment(
+    data = cat_network,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value),
+    color = alpha(PAL_MID, 0.7)
+  ) +
+  geom_point(data = cat_pos, aes(x, y), size = 7, shape = 21, fill = PAL_MUST, color = PAL_BG, stroke = 1) +
+  geom_text(data = cat_pos, aes(x, y, label = name), size = 3, fontface = "bold", color = PAL_DARK) +
+  scale_linewidth(range = c(0.7, 2.4), guide = "none") +
+  theme_void() +
+  labs(
+    title = "Network",
+    subtitle = "La vista más directa cuando los enlaces son el dato central"
+  )
+
+```
+
+```{r}
+#| label: fig-atlas-categ-nested-bar
+#| fig-cap: "Atlas categórico · Categorías anidadas: barplot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(nested_counts, aes(manufacturer, value, fill = class)) +
+  geom_col(width = 0.72) +
+  labs(
+    title = "Barplot anidado",
+    subtitle = "Primero compara el total y luego la composición interna",
+    x = NULL,
+    y = "Conteo",
+    fill = "Clase"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-nested-pack
+#| fig-cap: "Atlas categórico · Categorías anidadas: circular packing"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot() +
+  geom_polygon(
+    data = pack_nested_poly,
+    aes(x, y, group = interaction(manufacturer, class), fill = manufacturer),
+    color = PAL_BG,
+    linewidth = 0.4,
+    alpha = 0.8
+  ) +
+  geom_text(
+    data = distinct(pack_nested, manufacturer, x, y),
+    aes(x, y, label = manufacturer),
+    color = PAL_DARK,
+    fontface = "bold",
+    size = 3.2
+  ) +
+  scale_fill_manual(values = manu_cols, guide = "none") +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Circular packing anidado",
+    subtitle = "Expone inclusión jerárquica, no comparación exacta"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-nested-sun
+#| fig-cap: "Atlas categórico · Categorías anidadas: sunburst"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot() +
+  geom_rect(
+    data = inner_nested,
+    aes(ymin = ymin, ymax = ymax, xmin = xmin, xmax = xmax, fill = manufacturer),
+    color = PAL_BG,
+    linewidth = 0.7
+  ) +
+  geom_rect(
+    data = outer_nested,
+    aes(ymin = ymin, ymax = ymax, xmin = xmin, xmax = xmax, fill = manufacturer),
+    color = PAL_BG,
+    linewidth = 0.3,
+    alpha = 0.82
+  ) +
+  coord_polar(theta = "y") +
+  xlim(0, 3.2) +
+  scale_fill_manual(values = manu_cols, guide = "none") +
+  theme_void() +
+  labs(
+    title = "Sunburst",
+    subtitle = "Jerarquía expresada en anillos concéntricos"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-nested-tree
+#| fig-cap: "Atlas categórico · Categorías anidadas: treemap"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot(tree_nested) +
+  geom_rect(
+    aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = manufacturer),
+    color = PAL_BG,
+    linewidth = 0.8
+  ) +
+  geom_text(
+    aes(x = (xmin + xmax) / 2, y = (ymin + ymax) / 2, label = manufacturer),
+    size = 3.2,
+    fontface = "bold",
+    color = PAL_DARK
+  ) +
+  scale_fill_manual(values = manu_cols, guide = "none") +
+  coord_equal(expand = FALSE) +
+  theme_void() +
+  labs(
+    title = "Treemap",
+    subtitle = "Compacta jerarquías con muy buen uso del área"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-subgroup-grouped
+#| fig-cap: "Atlas categórico · Subgrupos: grouped scatter"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(cross_counts, aes(value, class, color = drv)) +
+  geom_point(size = 4, alpha = 0.85, position = position_dodge(width = 0.45)) +
+  scale_color_manual(values = drv_cols2) +
+  labs(
+    title = "Grouped scatter",
+    subtitle = "Comparación ligera entre subgrupos",
+    x = "Conteo",
+    y = NULL,
+    color = "Tracción"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-subgroup-heat
+#| fig-cap: "Atlas categórico · Subgrupos: heatmap"
+#| fig-width: 7.2
+#| fig-height: 5
+
+ggplot(cross_counts, aes(drv, class, fill = value)) +
+  geom_tile(color = PAL_BG, linewidth = 0.6) +
+  geom_text(aes(label = value), color = PAL_DARK, fontface = "bold", size = 4) +
+  scale_fill_gradient(low = "#F2E7D3", high = PAL_MUST) +
+  labs(
+    title = "Heatmap",
+    subtitle = "Hace visible una tabla cruzada en segundos",
+    x = NULL,
+    y = NULL,
+    fill = "Conteo"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-subgroup-lollipop
+#| fig-cap: "Atlas categórico · Subgrupos: lollipop"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(cross_counts, aes(value, class, color = drv)) +
+  geom_segment(
+    aes(x = 0, xend = value, y = class, yend = class),
+    linewidth = 1.1,
+    color = PAL_GRID,
+    position = position_dodge(width = 0.45)
+  ) +
+  geom_point(size = 3.8, position = position_dodge(width = 0.45)) +
+  scale_color_manual(values = drv_cols2) +
+  labs(
+    title = "Lollipop por subgrupo",
+    subtitle = "Útil cuando quieres comparar pocos subgrupos por categoría",
+    x = "Conteo",
+    y = NULL,
+    color = "Tracción"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-subgroup-parallel
+#| fig-cap: "Atlas categórico · Subgrupos: parallel plot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(profile_scaled, aes(drv, value_scaled, group = manufacturer, color = manufacturer)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.8) +
+  scale_color_manual(values = manu_cols2) +
+  labs(
+    title = "Parallel plot",
+    subtitle = "Compara el perfil relativo de cada categoría principal",
+    x = NULL,
+    y = "Escala relativa",
+    color = NULL
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-subgroup-spider
+#| fig-cap: "Atlas categórico · Subgrupos: spider plot"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot(spider_cat, aes(drv, value_scaled, group = manufacturer, color = manufacturer, fill = manufacturer)) +
+  geom_polygon(alpha = 0.12, linewidth = 0.8) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.2) +
+  coord_polar() +
+  scale_color_manual(values = manu_cols2) +
+  scale_fill_manual(values = manu_cols2) +
+  labs(
+    title = "Spider plot",
+    subtitle = "Muy llamativo, menos preciso que el paralelo",
+    x = NULL,
+    y = NULL,
+    color = NULL,
+    fill = NULL
+  ) +
+  theme(axis.text.y = element_blank())
+```
+
+```{r}
+#| label: fig-atlas-categ-subgroup-gbar
+#| fig-cap: "Atlas categórico · Subgrupos: grouped barplot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(profile_categ, aes(manufacturer, value, fill = drv)) +
+  geom_col(position = position_dodge(width = 0.72), width = 0.66) +
+  scale_fill_manual(values = drv_cols2) +
+  labs(
+    title = "Grouped barplot",
+    subtitle = "La opción robusta para comparación entre subgrupos",
+    x = NULL,
+    y = "Conteo",
+    fill = "Tracción"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-subgroup-sbar
+#| fig-cap: "Atlas categórico · Subgrupos: stacked barplot"
+#| fig-width: 7.2
+#| fig-height: 4.8
+
+ggplot(profile_categ, aes(manufacturer, value, fill = drv)) +
+  geom_col(width = 0.68) +
+  scale_fill_manual(values = drv_cols2) +
+  labs(
+    title = "Stacked barplot",
+    subtitle = "Sirve mejor para composición que para comparación fina",
+    x = NULL,
+    y = "Conteo",
+    fill = "Tracción"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-subgroup-sankey
+#| fig-cap: "Atlas categórico · Subgrupos: sankey"
+#| fig-width: 7.8
+#| fig-height: 5.4
+
+ggplot() +
+  geom_polygon(
+    data = sankey_prof,
+    aes(x, y, group = interaction(manufacturer, drv), fill = manufacturer),
+    alpha = 0.78,
+    color = NA
+  ) +
+  geom_rect(data = left_prof, aes(xmin = 0.02, xmax = 0.08, ymin = ymin, ymax = ymax), fill = PAL_NO, color = PAL_BG) +
+  geom_rect(data = right_prof, aes(xmin = 0.92, xmax = 0.98, ymin = ymin, ymax = ymax), fill = PAL_NO, color = PAL_BG) +
+  geom_text(data = left_prof, aes(x = 0, y = (ymin + ymax) / 2, label = manufacturer), hjust = 1, size = 3, fontface = "bold") +
+  geom_text(data = right_prof, aes(x = 1, y = (ymin + ymax) / 2, label = drv), hjust = 0, size = 3, fontface = "bold") +
+  scale_fill_manual(values = manu_cols2, guide = "none") +
+  coord_cartesian(xlim = c(-0.16, 1.16), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Sankey diagram",
+    subtitle = "Muestra cómo se reparte cada categoría principal entre subgrupos"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-adyacencia-heat
+#| fig-cap: "Atlas categórico · Adyacencia: heatmap"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot(cat_adj, aes(from, to, fill = value)) +
+  geom_tile(color = PAL_BG, linewidth = 0.6) +
+  geom_text(aes(label = if_else(value == 0, "", as.character(value))), color = PAL_DARK, size = 3.1) +
+  scale_fill_gradient(low = "#F2E7D3", high = PAL_MUST) +
+  coord_equal() +
+  labs(
+    title = "Heatmap de adyacencia",
+    subtitle = "Resume conexiones entre categorías en forma matricial",
+    x = NULL,
+    y = NULL,
+    fill = "Peso"
+  ) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+```
+
+```{r}
+#| label: fig-atlas-categ-adyacencia-arc
+#| fig-cap: "Atlas categórico · Adyacencia: arc"
+#| fig-width: 7.2
+#| fig-height: 3.9
+
+ggplot() +
+  geom_curve(
+    data = cat_arc,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value, color = from),
+    curvature = 0.28,
+    alpha = 0.56
+  ) +
+  geom_point(data = cat_nodes_line, aes(x, y), size = 3.5, color = PAL_DARK) +
+  geom_text(data = cat_nodes_line, aes(x, y - 0.1, label = name), size = 3, fontface = "bold") +
+  scale_color_manual(values = setNames(cat_palette[1:nrow(cat_nodes)], cat_nodes$name)) +
+  scale_linewidth(range = c(0.7, 2.2), guide = "none") +
+  coord_cartesian(ylim = c(-0.16, 0.38), clip = "off") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(
+    title = "Arc",
+    subtitle = "Útil si los nodos tienen un orden lineal"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-adyacencia-chord
+#| fig-cap: "Atlas categórico · Adyacencia: chord"
+#| fig-width: 7.2
+#| fig-height: 5.4
+
+ggplot() +
+  geom_curve(
+    data = cat_chord,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value, color = from),
+    curvature = 0.23,
+    alpha = 0.5
+  ) +
+  geom_point(data = cat_nodes_circle, aes(x, y), size = 3.6, color = PAL_DARK) +
+  geom_text(data = cat_nodes_circle, aes(1.18 * x, 1.18 * y, label = name), size = 2.9, fontface = "bold") +
+  scale_color_manual(values = setNames(cat_palette[1:nrow(cat_nodes)], cat_nodes$name)) +
+  scale_linewidth(range = c(0.7, 2.2), guide = "none") +
+  coord_equal(clip = "off") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(
+    title = "Chord",
+    subtitle = "Resalta conectividad global entre categorías"
+  )
+```
+
+```{r}
+#| label: fig-atlas-categ-adyacencia-network
+#| fig-cap: "Atlas categórico · Adyacencia: network"
+#| fig-width: 7.2
+#| fig-height: 5
+
+ggplot() +
+  geom_segment(
+    data = cat_network,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value),
+    color = alpha(PAL_MID, 0.7)
+  ) +
+  geom_point(data = cat_pos, aes(x, y), size = 7, shape = 21, fill = PAL_MUST, color = PAL_BG, stroke = 1) +
+  geom_text(data = cat_pos, aes(x, y, label = name), size = 3, fontface = "bold", color = PAL_DARK) +
+  scale_linewidth(range = c(0.7, 2.4), guide = "none") +
+  theme_void() +
+  labs(
+    title = "Network",
+    subtitle = "La vista más directa cuando los enlaces son el dato central"
+  )
+```
+
+## Cómo leer el atlas categórico
+
+`Primera opción` en datos categóricos:
+
+-   `barplot` y `lollipop` para frecuencia, ranking y comparación directa.
+-   `heatmap` para tablas cruzadas o matrices de adyacencia.
+-   `treemap` cuando necesitas composición compacta.
+-   `venn` solo si el mensaje principal es el solapamiento entre pocos conjuntos.
+
+`Especializados` en datos categóricos:
+
+-   `waffle` cuando quieres enfatizar proporción con una base de 100 unidades.
+-   `pie`, `doughnut`, `word cloud` y `circular packing` cuando aceptas perder precisión a cambio de forma expresiva.
+-   `sunburst` y `dendrogram` cuando la estructura jerárquica es más importante que la comparación exacta.
+-   `arc`, `chord`, `network` y `sankey` cuando la relación entre categorías pesa más que las categorías aisladas.
+
+::: callout-tip
+## Regla de decisión
+
+Si el dato es puramente categórico, elige primero la estructura: frecuencia, solapamiento, jerarquía, cruce o red. Esa elección te deja muy pocas opciones realmente defendibles.
+:::
+
+# 14 · Atlas de gráficos relacionales
+
+La familia relacional se centra en nodos, conexiones, jerarquías y flujos. Aquí lo importante no es solo el valor, sino quién está conectado con quién, qué tan fuerte es ese vínculo y si la estructura es plana, jerárquica o de red.
+
+Este atlas es el más cercano al de categorías anidadas y al de adyacencia del apartado anterior. La diferencia editorial es simple: aquí conviene pensar primero en la forma de la estructura relacional y recién después en el gráfico concreto.
+
+En términos de lectura, este es el atlas de referencia para `heatmap` relacional, `arc`, `chord`, `network` y `sankey`. Cuando esas familias reaparecen en otros apartados, deben leerse como adaptaciones de esta gramática general a datos categóricos o categórico-numéricos.
+
+## Redes y matrices de conexión
+
+```{r}
+#| label: fig-atlas-rel-redes-a
+#| include: false
+
+rel_links <- tribble(
+  ~from,        ~to,          ~value,
+  "Cliente",    "Ventas",     9,
+  "Cliente",    "Soporte",    6,
+  "Ventas",     "Producto",   7,
+  "Soporte",    "Producto",   4,
+  "Producto",   "Operaciones",8,
+  "Operaciones","Finanzas",   5,
+  "Ventas",     "Finanzas",   3
+)
+
+rel_nodes <- tibble(name = unique(c(rel_links$from, rel_links$to)))
+
+rel_adj <- bind_rows(
+  rel_links,
+  transmute(rel_links, from = to, to = from, value = value)
+) |>
+  complete(from = rel_nodes$name, to = rel_nodes$name, fill = list(value = 0))
+
+p_rel_heat <- ggplot(rel_adj, aes(from, to, fill = value)) +
+  geom_tile(color = PAL_BG, linewidth = 0.6) +
+  geom_text(aes(label = if_else(value == 0, "", as.character(value))), size = 3, color = PAL_DARK) +
+  scale_fill_gradient(low = "#F0E6D5", high = PAL_MUST) +
+  coord_equal() +
+  labs(
+    title = "Heatmap",
+    subtitle = "Traduce una matriz relacional en patrón visible",
+    x = NULL,
+    y = NULL,
+    fill = "Peso"
+  ) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+
+hive_nodes <- tribble(
+  ~name,         ~axis,       ~r,
+  "Cliente",     "Origen",    1.15,
+  "Ventas",      "Proceso",   0.75,
+  "Soporte",     "Proceso",   1.05,
+  "Producto",    "Proceso",   0.45,
+  "Operaciones", "Destino",   0.7,
+  "Finanzas",    "Destino",   1.1
+) |>
+  mutate(
+    angle = case_match(
+      axis,
+      "Origen" ~ pi / 2,
+      "Proceso" ~ 7 * pi / 6,
+      "Destino" ~ 11 * pi / 6
+    ),
+    x = r * cos(angle),
+    y = r * sin(angle)
+  )
+
+hive_axes <- tibble(
+  axis = c("Origen", "Proceso", "Destino"),
+  angle = c(pi / 2, 7 * pi / 6, 11 * pi / 6)
+) |>
+  mutate(xend = 1.32 * cos(angle), yend = 1.32 * sin(angle))
+
+hive_edges <- rel_links |>
+  left_join(hive_nodes |> select(name, x0 = x, y0 = y), by = c("from" = "name")) |>
+  left_join(hive_nodes |> select(name, x1 = x, y1 = y), by = c("to" = "name"))
+
+p_rel_hive <- ggplot() +
+  geom_segment(data = hive_axes, aes(x = 0, y = 0, xend = xend, yend = yend), color = PAL_GRID, linewidth = 1.2) +
+  geom_curve(
+    data = hive_edges,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value, color = from),
+    curvature = 0.15,
+    alpha = 0.55
+  ) +
+  geom_point(data = hive_nodes, aes(x, y, fill = axis), size = 5, shape = 21, color = PAL_BG, stroke = 0.9) +
+  geom_text(data = hive_nodes, aes(1.12 * x, 1.12 * y, label = name), size = 3, fontface = "bold", color = PAL_DARK) +
+  scale_fill_manual(values = c("Origen" = PAL_CAN, "Proceso" = "#8393C6", "Destino" = PAL_MUST), guide = "none") +
+  scale_color_manual(values = setNames(cat_palette[1:nrow(rel_nodes)], rel_nodes$name), guide = "none") +
+  scale_linewidth(range = c(0.7, 2.2), guide = "none") +
+  coord_equal(clip = "off") +
+  theme_void() +
+  labs(
+    title = "Hive",
+    subtitle = "Ordena nodos por ejes estructurales y reduce cruces arbitrarios"
+  )
+
+rel_nodes_line <- rel_nodes |>
+  mutate(x = seq_len(n()), y = 0)
+
+rel_arc <- rel_links |>
+  left_join(rel_nodes_line, by = c("from" = "name")) |>
+  rename(x0 = x, y0 = y) |>
+  left_join(rel_nodes_line, by = c("to" = "name")) |>
+  rename(x1 = x, y1 = y)
+
+p_rel_arc <- ggplot() +
+  geom_curve(
+    data = rel_arc,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value, color = from),
+    curvature = 0.28,
+    alpha = 0.56
+  ) +
+  geom_point(data = rel_nodes_line, aes(x, y), size = 3.4, color = PAL_DARK) +
+  geom_text(data = rel_nodes_line, aes(x, y - 0.1, label = name), size = 3, fontface = "bold") +
+  scale_color_manual(values = setNames(cat_palette[1:nrow(rel_nodes)], rel_nodes$name), guide = "none") +
+  scale_linewidth(range = c(0.7, 2.2), guide = "none") +
+  coord_cartesian(ylim = c(-0.16, 0.38), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Arc",
+    subtitle = "Funciona bien si existe un orden natural de los nodos"
+  )
+
+```
+
+```{r}
+#| label: fig-atlas-rel-redes-b
+#| include: false
+
+rel_nodes_circle <- rel_nodes |>
+  mutate(
+    angle = seq(pi / 2, pi / 2 + 2 * pi - 2 * pi / n(), length.out = n()),
+    x = cos(angle),
+    y = sin(angle)
+  )
+
+rel_chord <- rel_links |>
+  left_join(rel_nodes_circle, by = c("from" = "name")) |>
+  rename(x0 = x, y0 = y) |>
+  left_join(rel_nodes_circle, by = c("to" = "name")) |>
+  rename(x1 = x, y1 = y)
+
+p_rel_chord <- ggplot() +
+  geom_curve(
+    data = rel_chord,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value, color = from),
+    curvature = 0.22,
+    alpha = 0.52
+  ) +
+  geom_point(data = rel_nodes_circle, aes(x, y), size = 3.6, color = PAL_DARK) +
+  geom_text(data = rel_nodes_circle, aes(1.18 * x, 1.18 * y, label = name), size = 2.9, fontface = "bold") +
+  scale_color_manual(values = setNames(cat_palette[1:nrow(rel_nodes)], rel_nodes$name), guide = "none") +
+  scale_linewidth(range = c(0.7, 2.2), guide = "none") +
+  coord_equal(clip = "off") +
+  theme_void() +
+  labs(
+    title = "Chord",
+    subtitle = "Subraya la conectividad global entre nodos"
+  )
+
+rel_pos <- tibble(
+  name = c("Cliente", "Ventas", "Soporte", "Producto", "Operaciones", "Finanzas"),
+  x = c(0.0, 1.1, 0.7, 1.8, 2.6, 3.2),
+  y = c(0.5, 1.4, -0.7, 0.4, -0.1, 0.8)
+)
+
+rel_network <- rel_links |>
+  left_join(rel_pos, by = c("from" = "name")) |>
+  rename(x0 = x, y0 = y) |>
+  left_join(rel_pos, by = c("to" = "name")) |>
+  rename(x1 = x, y1 = y)
+
+p_rel_network <- ggplot() +
+  geom_segment(data = rel_network, aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value), color = alpha(PAL_MID, 0.72)) +
+  geom_point(data = rel_pos, aes(x, y), size = 7, shape = 21, fill = PAL_MUST, color = PAL_BG, stroke = 1) +
+  geom_text(data = rel_pos, aes(x, y, label = name), size = 3, fontface = "bold", color = PAL_DARK) +
+  scale_linewidth(range = c(0.7, 2.4), guide = "none") +
+  theme_void() +
+  labs(
+    title = "Network",
+    subtitle = "La opción general para relaciones nodo-enlace"
+  )
+
+left_rel <- rel_links |>
+  group_by(from) |>
+  summarise(total = sum(value), .groups = "drop") |>
+  arrange(desc(total)) |>
+  mutate(ymax = cumsum(total), ymin = lag(ymax, default = 0))
+
+flow_rel <- rel_links |>
+  left_join(left_rel, by = c("from")) |>
+  group_by(from) |>
+  arrange(to, .by_group = TRUE) |>
+  mutate(
+    ymin0 = ymin + cumsum(lag(value, default = 0)),
+    ymax0 = ymin0 + value
+  ) |>
+  ungroup()
+
+right_rel <- rel_links |>
+  group_by(to) |>
+  summarise(total = sum(value), .groups = "drop") |>
+  arrange(desc(total)) |>
+  mutate(ymax = cumsum(total), ymin = lag(ymax, default = 0))
+
+flow_rel2 <- flow_rel |>
+  left_join(right_rel |> rename(ymin_r = ymin, ymax_r = ymax), by = c("to")) |>
+  group_by(to) |>
+  arrange(from, .by_group = TRUE) |>
+  mutate(
+    ymin1 = ymin_r + cumsum(lag(value, default = 0)),
+    ymax1 = ymin1 + value
+  ) |>
+  ungroup()
+
+sankey_rel <- pmap_dfr(
+  list(flow_rel2$from, flow_rel2$to, flow_rel2$ymin0, flow_rel2$ymax0, flow_rel2$ymin1, flow_rel2$ymax1),
+  function(from, to, ymin0, ymax0, ymin1, ymax1) {
+    make_flow_ribbon(0.1, 0.9, ymin0, ymax0, ymin1, ymax1) |>
+      mutate(from = from, to = to)
+  }
+)
+
+p_rel_sankey <- ggplot() +
+  geom_polygon(
+    data = sankey_rel,
+    aes(x, y, group = interaction(from, to), fill = from),
+    alpha = 0.78,
+    color = NA
+  ) +
+  geom_rect(data = left_rel, aes(xmin = 0.02, xmax = 0.08, ymin = ymin, ymax = ymax), fill = PAL_NO, color = PAL_BG) +
+  geom_rect(data = right_rel, aes(xmin = 0.92, xmax = 0.98, ymin = ymin, ymax = ymax), fill = PAL_NO, color = PAL_BG) +
+  geom_text(data = left_rel, aes(x = 0, y = (ymin + ymax) / 2, label = from), hjust = 1, size = 3, fontface = "bold") +
+  geom_text(data = right_rel, aes(x = 1, y = (ymin + ymax) / 2, label = to), hjust = 0, size = 3, fontface = "bold") +
+  scale_fill_manual(values = setNames(cat_palette[1:nrow(left_rel)], left_rel$from), guide = "none") +
+  coord_cartesian(xlim = c(-0.16, 1.16), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Sankey",
+    subtitle = "Ideal para leer transferencias y reparto entre etapas"
+  )
+
+```
+
+## Estructuras jerárquicas relacionales
+
+```{r}
+#| label: fig-atlas-rel-nested-a
+#| include: false
+
+hier_df <- tribble(
+  ~grupo,        ~subgrupo,       ~value,
+  "Clientes",    "Nuevos",        18,
+  "Clientes",    "Recurrentes",   26,
+  "Operación",   "Producción",    22,
+  "Operación",   "Logística",     15,
+  "Finanzas",    "Cobranza",      11,
+  "Finanzas",    "Planeación",     9
+)
+
+group_totals <- hier_df |>
+  group_by(grupo) |>
+  summarise(total = sum(value), .groups = "drop")
+
+group_cols3 <- setNames(cat_palette[1:nrow(group_totals)], group_totals$grupo)
+
+pack_hier <- hier_df |>
+  mutate(
+    x = case_match(grupo, "Clientes" ~ 0.24, "Operación" ~ 0.73, "Finanzas" ~ 0.5),
+    y = case_match(grupo, "Clientes" ~ 0.67, "Operación" ~ 0.64, "Finanzas" ~ 0.24),
+    dx = c(-0.08, 0.08, -0.08, 0.08, -0.07, 0.07),
+    dy = c(0, 0, 0, 0, 0, 0),
+    r = rescale(sqrt(value), to = c(0.09, 0.18))
+  )
+
+pack_hier_poly <- pmap_dfr(
+  list(pack_hier$subgrupo, pack_hier$x + pack_hier$dx, pack_hier$y + pack_hier$dy, pack_hier$r, pack_hier$grupo),
+  function(subgrupo, x0, y0, r, grupo) {
+    circle_polygon(x0, y0, r) |>
+      mutate(subgrupo = subgrupo, grupo = grupo)
+  }
+)
+
+p_rel_pack <- ggplot() +
+  geom_polygon(
+    data = pack_hier_poly,
+    aes(x, y, group = subgrupo, fill = grupo),
+    color = PAL_BG,
+    linewidth = 0.5,
+    alpha = 0.82
+  ) +
+  geom_text(data = distinct(pack_hier, grupo, x, y), aes(x, y, label = grupo), size = 3.2, fontface = "bold", color = PAL_DARK) +
+  scale_fill_manual(values = group_cols3, guide = "none") +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Circular packing",
+    subtitle = "Jerarquía radial basada en contención visual"
+  )
+
+inner_rel <- group_totals |>
+  mutate(
+    ymax = cumsum(total),
+    ymin = lag(ymax, default = 0),
+    xmin = 1,
+    xmax = 2
+  )
+
+outer_rel <- hier_df |>
+  left_join(inner_rel |> select(grupo, ymin_inner = ymin), by = "grupo") |>
+  group_by(grupo) |>
+  arrange(desc(value), .by_group = TRUE) |>
+  mutate(
+    ymax = ymin_inner + cumsum(value),
+    ymin = lag(ymax, default = first(ymin_inner)),
+    xmin = 2,
+    xmax = 3
+  ) |>
+  ungroup()
+
+p_rel_sun <- ggplot() +
+  geom_rect(data = inner_rel, aes(ymin = ymin, ymax = ymax, xmin = xmin, xmax = xmax, fill = grupo), color = PAL_BG, linewidth = 0.7) +
+  geom_rect(data = outer_rel, aes(ymin = ymin, ymax = ymax, xmin = xmin, xmax = xmax, fill = grupo), color = PAL_BG, linewidth = 0.35, alpha = 0.82) +
+  coord_polar(theta = "y") +
+  xlim(0, 3.2) +
+  scale_fill_manual(values = group_cols3, guide = "none") +
+  theme_void() +
+  labs(
+    title = "Sunburst",
+    subtitle = "Adecuado para jerarquías con pocos niveles"
+  )
+
+tree_rel <- simple_treemap_layout(
+  group_totals |>
+    transmute(grupo, value = total),
+  value_col = "value"
+)
+
+p_rel_tree <- ggplot(tree_rel) +
+  geom_rect(aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = grupo), color = PAL_BG, linewidth = 0.8) +
+  geom_text(aes(x = (xmin + xmax) / 2, y = (ymin + ymax) / 2, label = grupo), size = 3.3, fontface = "bold", color = PAL_DARK) +
+  scale_fill_manual(values = group_cols3, guide = "none") +
+  coord_equal(expand = FALSE) +
+  theme_void() +
+  labs(
+    title = "Treemap",
+    subtitle = "Aprovecha mejor el espacio cuando el valor está en las hojas"
+  )
+
+```
+
+```{r}
+#| label: fig-atlas-rel-nested-b
+#| include: false
+
+leaf_profile <- hier_df |>
+  mutate(subgrupo = factor(subgrupo, levels = subgrupo)) |>
+  mutate(
+    Clientes = if_else(grupo == "Clientes", value, 0),
+    Operación = if_else(grupo == "Operación", value, 0),
+    Finanzas = if_else(grupo == "Finanzas", value, 0)
+  ) |>
+  select(subgrupo, Clientes, Operación, Finanzas)
+
+hc_rel <- hclust(
+  dist(scale(select(leaf_profile, -subgrupo))),
+  method = "ward.D2"
+)
+
+left_hier <- group_totals |>
+  arrange(desc(total)) |>
+  mutate(ymax = cumsum(total), ymin = lag(ymax, default = 0))
+
+flow_hier <- hier_df |>
+  left_join(left_hier, by = c("grupo")) |>
+  group_by(grupo) |>
+  arrange(subgrupo, .by_group = TRUE) |>
+  mutate(
+    ymin0 = ymin + cumsum(lag(value, default = 0)),
+    ymax0 = ymin0 + value
+  ) |>
+  ungroup()
+
+right_hier <- hier_df |>
+  transmute(subgrupo, total = value) |>
+  arrange(desc(total)) |>
+  mutate(ymax = cumsum(total), ymin = lag(ymax, default = 0))
+
+flow_hier2 <- flow_hier |>
+  left_join(right_hier |> rename(ymin_r = ymin, ymax_r = ymax), by = c("subgrupo")) |>
+  mutate(ymin1 = ymin_r, ymax1 = ymax_r)
+
+sankey_hier <- pmap_dfr(
+  list(flow_hier2$grupo, flow_hier2$subgrupo, flow_hier2$ymin0, flow_hier2$ymax0, flow_hier2$ymin1, flow_hier2$ymax1),
+  function(grupo, subgrupo, ymin0, ymax0, ymin1, ymax1) {
+    make_flow_ribbon(0.1, 0.9, ymin0, ymax0, ymin1, ymax1) |>
+      mutate(grupo = grupo, subgrupo = subgrupo)
+  }
+)
+
+p_rel_hier_sankey <- ggplot() +
+  geom_polygon(
+    data = sankey_hier,
+    aes(x, y, group = interaction(grupo, subgrupo), fill = grupo),
+    alpha = 0.8,
+    color = NA
+  ) +
+  geom_rect(data = left_hier, aes(xmin = 0.02, xmax = 0.08, ymin = ymin, ymax = ymax), fill = PAL_NO, color = PAL_BG) +
+  geom_rect(data = right_hier, aes(xmin = 0.92, xmax = 0.98, ymin = ymin, ymax = ymax), fill = PAL_NO, color = PAL_BG) +
+  geom_text(data = left_hier, aes(x = 0, y = (ymin + ymax) / 2, label = grupo), hjust = 1, size = 3, fontface = "bold") +
+  geom_text(data = right_hier, aes(x = 1, y = (ymin + ymax) / 2, label = subgrupo), hjust = 0, size = 3, fontface = "bold") +
+  scale_fill_manual(values = group_cols3, guide = "none") +
+  coord_cartesian(xlim = c(-0.16, 1.16), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Sankey jerárquico",
+    subtitle = "Convierte una jerarquía en una lectura de reparto"
+  )
+
+```
+
+```{r}
+#| label: fig-atlas-rel-redes-heat
+#| fig-cap: "Atlas relacional · Redes y matrices: heatmap"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot(rel_adj, aes(from, to, fill = value)) +
+  geom_tile(color = PAL_BG, linewidth = 0.6) +
+  geom_text(aes(label = if_else(value == 0, "", as.character(value))), size = 3.1, color = PAL_DARK) +
+  scale_fill_gradient(low = "#F2E7D3", high = PAL_MUST) +
+  coord_equal() +
+  labs(
+    title = "Heatmap",
+    subtitle = "Convierte una red en una matriz de relaciones",
+    x = NULL,
+    y = NULL,
+    fill = "Peso"
+  ) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+```
+
+```{r}
+#| label: fig-atlas-rel-redes-hive
+#| fig-cap: "Atlas relacional · Redes y matrices: hive"
+#| fig-width: 7.2
+#| fig-height: 5.4
+
+ggplot() +
+  geom_segment(data = hive_axes, aes(x = 0, y = 0, xend = xend, yend = yend), color = PAL_GRID, linewidth = 1.2) +
+  geom_curve(
+    data = hive_edges,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value, color = from),
+    curvature = 0.15,
+    alpha = 0.55
+  ) +
+  geom_point(data = hive_nodes, aes(x, y, fill = axis), size = 5, shape = 21, color = PAL_BG, stroke = 0.9) +
+  geom_text(data = hive_nodes, aes(1.12 * x, 1.12 * y, label = name), size = 3, fontface = "bold", color = PAL_DARK) +
+  scale_fill_manual(values = c("Origen" = PAL_CAN, "Proceso" = "#8393C6", "Destino" = PAL_MUST), guide = "none") +
+  scale_color_manual(values = setNames(cat_palette[1:nrow(rel_nodes)], rel_nodes$name), guide = "none") +
+  scale_linewidth(range = c(0.7, 2.2), guide = "none") +
+  coord_equal(clip = "off") +
+  theme_void() +
+  labs(
+    title = "Hive",
+    subtitle = "Ordena nodos por ejes estructurales y reduce cruces arbitrarios"
+  )
+```
+
+```{r}
+#| label: fig-atlas-rel-redes-arc
+#| fig-cap: "Atlas relacional · Redes y matrices: arc"
+#| fig-width: 7.2
+#| fig-height: 3.9
+
+ggplot() +
+  geom_curve(
+    data = rel_arc,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value, color = from),
+    curvature = 0.28,
+    alpha = 0.56
+  ) +
+  geom_point(data = rel_nodes_line, aes(x, y), size = 3.4, color = PAL_DARK) +
+  geom_text(data = rel_nodes_line, aes(x, y - 0.1, label = name), size = 3, fontface = "bold") +
+  scale_color_manual(values = setNames(cat_palette[1:nrow(rel_nodes)], rel_nodes$name), guide = "none") +
+  scale_linewidth(range = c(0.7, 2.2), guide = "none") +
+  coord_cartesian(ylim = c(-0.16, 0.38), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Arc",
+    subtitle = "Funciona bien si existe un orden natural de los nodos"
+  )
+```
+
+```{r}
+#| label: fig-atlas-rel-redes-chord
+#| fig-cap: "Atlas relacional · Redes y matrices: chord"
+#| fig-width: 7.2
+#| fig-height: 5.4
+
+ggplot() +
+  geom_curve(
+    data = rel_chord,
+    aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value, color = from),
+    curvature = 0.22,
+    alpha = 0.52
+  ) +
+  geom_point(data = rel_nodes_circle, aes(x, y), size = 3.6, color = PAL_DARK) +
+  geom_text(data = rel_nodes_circle, aes(1.18 * x, 1.18 * y, label = name), size = 2.9, fontface = "bold") +
+  scale_color_manual(values = setNames(cat_palette[1:nrow(rel_nodes)], rel_nodes$name), guide = "none") +
+  scale_linewidth(range = c(0.7, 2.2), guide = "none") +
+  coord_equal(clip = "off") +
+  theme_void() +
+  labs(
+    title = "Chord",
+    subtitle = "Subraya la conectividad global entre nodos"
+  )
+```
+
+```{r}
+#| label: fig-atlas-rel-redes-network
+#| fig-cap: "Atlas relacional · Redes y matrices: network"
+#| fig-width: 7.2
+#| fig-height: 5
+
+ggplot() +
+  geom_segment(data = rel_network, aes(x = x0, y = y0, xend = x1, yend = y1, linewidth = value), color = alpha(PAL_MID, 0.72)) +
+  geom_point(data = rel_pos, aes(x, y), size = 7, shape = 21, fill = PAL_MUST, color = PAL_BG, stroke = 1) +
+  geom_text(data = rel_pos, aes(x, y, label = name), size = 3, fontface = "bold", color = PAL_DARK) +
+  scale_linewidth(range = c(0.7, 2.4), guide = "none") +
+  theme_void() +
+  labs(
+    title = "Network",
+    subtitle = "La opción general para relaciones nodo-enlace"
+  )
+```
+
+```{r}
+#| label: fig-atlas-rel-redes-sankey
+#| fig-cap: "Atlas relacional · Redes y matrices: sankey"
+#| fig-width: 7.8
+#| fig-height: 5.4
+
+ggplot() +
+  geom_polygon(
+    data = sankey_rel,
+    aes(x, y, group = interaction(from, to), fill = from),
+    alpha = 0.78,
+    color = NA
+  ) +
+  geom_rect(data = left_rel, aes(xmin = 0.02, xmax = 0.08, ymin = ymin, ymax = ymax), fill = PAL_NO, color = PAL_BG) +
+  geom_rect(data = right_rel, aes(xmin = 0.92, xmax = 0.98, ymin = ymin, ymax = ymax), fill = PAL_NO, color = PAL_BG) +
+  geom_text(data = left_rel, aes(x = 0, y = (ymin + ymax) / 2, label = from), hjust = 1, size = 3, fontface = "bold") +
+  geom_text(data = right_rel, aes(x = 1, y = (ymin + ymax) / 2, label = to), hjust = 0, size = 3, fontface = "bold") +
+  scale_fill_manual(values = setNames(cat_palette[1:nrow(left_rel)], left_rel$from), guide = "none") +
+  coord_cartesian(xlim = c(-0.16, 1.16), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Sankey",
+    subtitle = "Ideal para leer transferencias y reparto entre etapas"
+  )
+```
+
+```{r}
+#| label: fig-atlas-rel-nested-pack
+#| fig-cap: "Atlas relacional · Estructura anidada: circular packing"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot() +
+  geom_polygon(
+    data = pack_hier_poly,
+    aes(x, y, group = subgrupo, fill = grupo),
+    color = PAL_BG,
+    linewidth = 0.5,
+    alpha = 0.82
+  ) +
+  geom_text(data = distinct(pack_hier, grupo, x, y), aes(x, y, label = grupo), size = 3.2, fontface = "bold", color = PAL_DARK) +
+  scale_fill_manual(values = group_cols3, guide = "none") +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Circular packing",
+    subtitle = "Jerarquía radial basada en contención visual"
+  )
+```
+
+```{r}
+#| label: fig-atlas-rel-nested-sun
+#| fig-cap: "Atlas relacional · Estructura anidada: sunburst"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot() +
+  geom_rect(data = inner_rel, aes(ymin = ymin, ymax = ymax, xmin = xmin, xmax = xmax, fill = grupo), color = PAL_BG, linewidth = 0.7) +
+  geom_rect(data = outer_rel, aes(ymin = ymin, ymax = ymax, xmin = xmin, xmax = xmax, fill = grupo), color = PAL_BG, linewidth = 0.35, alpha = 0.82) +
+  coord_polar(theta = "y") +
+  xlim(0, 3.2) +
+  scale_fill_manual(values = group_cols3, guide = "none") +
+  theme_void() +
+  labs(
+    title = "Sunburst",
+    subtitle = "Adecuado para jerarquías con pocos niveles"
+  )
+```
+
+```{r}
+#| label: fig-atlas-rel-nested-tree
+#| fig-cap: "Atlas relacional · Estructura anidada: treemap"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+ggplot(tree_rel) +
+  geom_rect(aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = grupo), color = PAL_BG, linewidth = 0.8) +
+  geom_text(aes(x = (xmin + xmax) / 2, y = (ymin + ymax) / 2, label = grupo), size = 3.3, fontface = "bold", color = PAL_DARK) +
+  scale_fill_manual(values = group_cols3, guide = "none") +
+  coord_equal(expand = FALSE) +
+  theme_void() +
+  labs(
+    title = "Treemap",
+    subtitle = "Aprovecha mejor el espacio cuando el valor está en las hojas"
+  )
+```
+
+```{r}
+#| label: fig-atlas-rel-nested-dendro
+#| fig-cap: "Atlas relacional · Estructura anidada: dendrograma"
+#| fig-width: 7.2
+#| fig-height: 5.2
+
+plot(
+  hc_rel,
+  labels = leaf_profile$subgrupo,
+  main = "Dendrograma",
+  xlab = "",
+  sub = ""
+)
+```
+
+```{r}
+#| label: fig-atlas-rel-nested-sankey
+#| fig-cap: "Atlas relacional · Estructura anidada: sankey"
+#| fig-width: 7.8
+#| fig-height: 5.4
+
+ggplot() +
+  geom_polygon(
+    data = sankey_hier,
+    aes(x, y, group = interaction(grupo, subgrupo), fill = grupo),
+    alpha = 0.8,
+    color = NA
+  ) +
+  geom_rect(data = left_hier, aes(xmin = 0.02, xmax = 0.08, ymin = ymin, ymax = ymax), fill = PAL_NO, color = PAL_BG) +
+  geom_rect(data = right_hier, aes(xmin = 0.92, xmax = 0.98, ymin = ymin, ymax = ymax), fill = PAL_NO, color = PAL_BG) +
+  geom_text(data = left_hier, aes(x = 0, y = (ymin + ymax) / 2, label = grupo), hjust = 1, size = 3, fontface = "bold") +
+  geom_text(data = right_hier, aes(x = 1, y = (ymin + ymax) / 2, label = subgrupo), hjust = 0, size = 3, fontface = "bold") +
+  scale_fill_manual(values = group_cols3, guide = "none") +
+  coord_cartesian(xlim = c(-0.16, 1.16), clip = "off") +
+  theme_void() +
+  labs(
+    title = "Sankey jerárquico",
+    subtitle = "Convierte una jerarquía en una lectura de reparto"
+  )
+```
+
+## Conexiones densas
+
+Cuando el problema principal es el exceso de enlaces, una alternativa es agruparlos visualmente en haces.
+
+```{r}
+#| label: fig-atlas-rel-edgebundling
+#| fig-cap: "Relacional: edge bundling"
+#| fig-width: 8.5
+#| fig-height: 6
+
+bundle_nodes <- tibble(
+  name = c("A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2"),
+  group = c("A", "A", "B", "B", "C", "C", "D", "D"),
+  angle = c(120, 150, 30, 60, -30, -60, -120, -150) * pi / 180
+) |>
+  mutate(
+    x = cos(angle),
+    y = sin(angle)
+  )
+
+bundle_edges <- tribble(
+  ~from, ~to,
+  "A1", "B1",
+  "A2", "B2",
+  "A1", "C1",
+  "A2", "C2",
+  "B1", "D1",
+  "B2", "D2",
+  "C1", "D1",
+  "C2", "D2"
+) |>
+  left_join(bundle_nodes |> select(name, group_from = group, x0 = x, y0 = y), by = c("from" = "name")) |>
+  left_join(bundle_nodes |> select(name, group_to = group, x1 = x, y1 = y), by = c("to" = "name"))
+
+group_anchor <- tibble(
+  group = c("A", "B", "C", "D"),
+  angle = c(135, 45, -45, -135) * pi / 180
+) |>
+  mutate(xc = 0.22 * cos(angle), yc = 0.22 * sin(angle))
+
+bundle_df <- bundle_edges |>
+  left_join(group_anchor |> rename(group_from = group, xcf = xc, ycf = yc), by = "group_from") |>
+  left_join(group_anchor |> rename(group_to = group, xct = xc, yct = yc), by = "group_to")
+
+bundle_paths <- pmap_dfr(
+  list(bundle_df$from, bundle_df$to, bundle_df$x0, bundle_df$y0, bundle_df$x1, bundle_df$y1, bundle_df$xcf, bundle_df$ycf, bundle_df$xct, bundle_df$yct),
+  function(from, to, x0, y0, x1, y1, xcf, ycf, xct, yct) {
+    p1 <- quad_bezier(x0, y0, xcf, ycf, 0, 0, n = 50)
+    p2 <- quad_bezier(0, 0, xct, yct, x1, y1, n = 50)
+    bind_rows(p1, p2) |>
+      mutate(edge = paste(from, to, sep = "_"))
+  }
+)
+
+ggplot() +
+  geom_path(
+    data = bundle_paths,
+    aes(x, y, group = edge),
+    color = alpha(PAL_MID, 0.5),
+    linewidth = 0.9
+  ) +
+  geom_point(data = bundle_nodes, aes(x, y, fill = group), size = 5, shape = 21, color = PAL_BG, stroke = 0.9) +
+  geom_text(data = bundle_nodes, aes(1.12 * x, 1.12 * y, label = name), size = 3, fontface = "bold", color = PAL_DARK) +
+  scale_fill_manual(values = setNames(cat_palette[1:4], c("A", "B", "C", "D")), guide = "none") +
+  coord_equal(clip = "off") +
+  theme_void() +
+  labs(
+    title = "Edge bundling",
+    subtitle = "Agrupa trayectorias similares para reducir ruido visual en redes densas"
+  )
+```
+
+## Cómo leer el atlas relacional
+
+`Primera opción` en datos relacionales:
+
+-   `heatmap` si la estructura puede escribirse como matriz y quieres lectura rápida.
+-   `network` si necesitas una vista nodo-enlace general.
+-   `sankey` si el mensaje principal es flujo entre etapas o bloques.
+-   `treemap` o `dendrogram` si la estructura es claramente jerárquica.
+
+`Especializados` en datos relacionales:
+
+-   `hive`, `arc` y `chord` cuando el orden de nodos o la forma circular ayuda realmente a leer la red.
+-   `circular packing` y `sunburst` cuando la jerarquía debe leerse más como inclusión que como comparación exacta.
+-   `edge bundling` cuando la densidad de conexiones vuelve ilegible una red convencional.
+
+::: callout-tip
+## Regla de decisión
+
+En estructuras relacionales, decide primero si tu dato es una matriz, una red, un flujo o una jerarquía. Luego elige la geometría que mejor reduzca cruces y carga cognitiva.
+:::
+
+# 15 · Plantilla reusable para tu propio flujo
+
+La siguiente plantilla resume una forma de trabajo robusta para gráficos de análisis o comunicación.
+
+``` r
+library(tidyverse)
+library(scales)
+
+datos_resumen <- datos |>
+  mutate(...) |>
+  filter(...) |>
+  group_by(...) |>
+  summarise(...)
+
+datos_resumen |>
+  ggplot(aes(x = ..., y = ..., color = ..., fill = ...)) +
+  geom_*(
+    alpha = ...,
+    size = ...,
+    linewidth = ...
+  ) +
+  geom_*() +
+  scale_color_manual(values = c(...)) +
+  scale_fill_manual(values = c(...)) +
+  labs(
+    title = "Conclusión principal",
+    subtitle = "Contexto breve para orientar la lectura",
+    x = "Eje X",
+    y = "Eje Y",
+    caption = "Fuente: ..."
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position = "top",
+    panel.grid.minor = element_blank()
+  )
+```
+
+## Checklist antes de dar por terminado un gráfico
+
+-   ¿El tipo de gráfico responde a la pregunta analítica?
+-   ¿Las variables están bien mapeadas a posición, color y tamaño?
+-   ¿Los ejes tienen unidades, breaks y rango adecuados?
+-   ¿Las categorías están ordenadas si la comparación lo exige?
+-   ¿El título explica qué hay que mirar?
+-   ¿La leyenda realmente hace falta o conviene etiquetar directo?
+-   ¿La paleta funciona con pocos colores y suficiente contraste?
+-   ¿Las etiquetas, ejes y leyendas reducen trabajo al lector?
+-   ¿El gráfico sigue funcionando en escala de grises o con impresión en PDF?
+
+# 16 · Fuentes de estudio recomendadas
+
+Esta guía se apoyó en los siguientes materiales, combinando principios de diseño, gramática de los gráficos y práctica de refinamiento:
+
+-   [Fundamentals of Data Visualization](https://clauswilke.com/dataviz/)
+-   [From Data to Viz](https://www.data-to-viz.com/)
+-   [posit-conf-2023/dataviz-ggplot2](https://github.com/posit-conf-2023/dataviz-ggplot2)
+-   [ggplot2: Elegant Graphics for Data Analysis](https://ggplot2-book.org/)
+-   [A ggplot2 tutorial for beautiful plotting in R](https://www.cedricscherer.com/2019/08/05/a-ggplot2-tutorial-for-beautiful-plotting-in-r/)
+-   [Top 50 ggplot2 Visualizations](https://r-statistics.co/Top50-Ggplot2-Visualizations-MasterList-R-Code.html)
+
+## Cierre
+
+Aprender `ggplot2` no consiste en memorizar muchas funciones. Consiste en practicar una secuencia estable: entender variables, elegir una forma visual adecuada, construir por capas y refinar hasta que el gráfico sea claro, honesto y fácil de leer.

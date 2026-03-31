@@ -1,0 +1,30 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - index.qmd
+    - guia_proceso_ggplot2.qmd
+  resources:
+    - poster-big.png
+    - pdf/
+
+website:
+  title: "Guía práctica de ggplot2"
+  page-navigation: true
+  navbar:
+    left:
+      - href: index.qmd
+        text: Inicio
+      - href: guia_proceso_ggplot2.qmd
+        text: Guía completa
+    right:
+      - href: guia_proceso_ggplot2.pdf
+        text: Descargar PDF
+  sidebar:
+    style: docked
+    search: true
+    contents:
+      - index.qmd
+      - guia_proceso_ggplot2.qmd
+
+lang: es
