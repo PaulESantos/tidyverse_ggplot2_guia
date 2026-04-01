@@ -1,3 +1,7 @@
+format:
+  html:
+    css: styles.css
+
 project:
   type: website
   output-dir: _site
@@ -6,12 +10,15 @@ project:
     - guia_proceso_ggplot2.qmd
   resources:
     - poster-big.png
+    - hero-proceso-ggplot.png
     - pdf/
 
 website:
   title: "Guía práctica de ggplot2"
   page-navigation: true
   navbar:
+    background: "#F4EBDD"
+    foreground: "#1F1A13"
     left:
       - href: index.qmd
         text: Inicio

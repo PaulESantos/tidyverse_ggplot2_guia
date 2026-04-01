@@ -1,0 +1,74 @@
+:root {
+  --site-bg: #fbf7f0;
+  --site-surface: #f4ebdd;
+  --site-surface-2: #efe3d1;
+  --site-line: #d6c7af;
+  --site-accent: #b88228;
+  --site-deep: #1f1a13;
+  --site-muted: #7f7360;
+  --site-green: #445e46;
+}
+
+body {
+  background-color: var(--site-bg);
+  color: var(--site-deep);
+}
+
+.navbar,
+.navbar-dark,
+.navbar-expand-lg {
+  background: linear-gradient(180deg, var(--site-surface) 0%, var(--site-surface-2) 100%) !important;
+  border-bottom: 1px solid rgba(214, 199, 175, 0.95);
+  box-shadow: 0 8px 24px rgba(31, 26, 19, 0.06);
+}
+
+.navbar-brand,
+.navbar-nav .nav-link,
+.navbar #quarto-search.type-overlay .aa-Autocomplete svg,
+.navbar .quarto-navbar-tools .quarto-navigation-tool {
+  color: var(--site-deep) !important;
+}
+
+.navbar-brand {
+  font-weight: 700;
+}
+
+.navbar-nav .nav-link:hover,
+.navbar-nav .nav-link:focus,
+.navbar-nav .nav-link.active,
+.navbar-brand:hover {
+  color: var(--site-accent) !important;
+}
+
+.navbar-toggler {
+  border-color: rgba(31, 26, 19, 0.2);
+}
+
+.navbar-toggler-icon {
+  filter: brightness(0.25);
+}
+
+.sidebar,
+.sidebar nav[role="doc-toc"],
+.sidebar-navigation {
+  background-color: rgba(251, 247, 240, 0.92);
+}
+
+.sidebar-item-text,
+.sidebar-link,
+.sidebar nav a {
+  color: var(--site-deep);
+}
+
+.sidebar nav a:hover,
+.sidebar nav a.active {
+  color: var(--site-accent);
+}
+
+a {
+  color: var(--site-green);
+}
+
+a:hover {
+  color: var(--site-accent);
+}

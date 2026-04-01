@@ -20,6 +20,8 @@ format:
     toc-depth: 3
     papersize: a4
     keep-typ: true
+    template-partials:
+      - typst-template.typ
     margin:
       x: 1.45cm
       y: 1.55cm

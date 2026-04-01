@@ -16,3 +16,6 @@ ggplot2_guia_visual_mejorada_1.html
 .Rproj.user
 .httr-oauth
 .quarto
+
+/.quarto/
+**/*.quarto_ipynb

@@ -1,6 +1,6 @@
 ---
 title: "Guía práctica de ggplot2"
-subtitle: "Versión web y descarga en PDF"
+subtitle: "Proceso, refinamiento y lectura final"
 page-layout: full
 format:
   html:
@@ -30,22 +30,24 @@ body {
 }
 
 .landing {
-  max-width: 1080px;
+  max-width: 1160px;
   margin: 0 auto;
-  padding: 2rem 0 3rem;
+  padding: 2rem 0 3.2rem;
 }
 
 .landing-hero {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
-  gap: 2rem;
+  grid-template-columns: minmax(0, 1.02fr) minmax(360px, 0.98fr);
+  gap: 2.2rem;
   align-items: center;
   margin-bottom: 2rem;
 }
 
 .landing-copy h1,
 .landing-copy h2,
-.landing-copy h3 {
+.landing-copy h3,
+.landing-panel h3,
+.landing-wide h2 {
   font-family: 'Playfair Display', serif;
 }
 
@@ -58,22 +60,46 @@ body {
   margin-bottom: 0.7rem;
 }
 
-.landing-copy p {
-  font-size: 1.08rem;
-  line-height: 1.75;
+.landing-copy p,
+.landing-wide p {
+  font-size: 1.06rem;
+  line-height: 1.78;
+}
+
+.landing-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 1rem 0 1.15rem;
+}
+
+.landing-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--c-line);
+  background: rgba(251, 247, 240, 0.88);
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.95rem;
+  color: var(--c-deep);
+}
+
+.landing-step strong {
+  color: var(--c-accent);
 }
 
 .landing-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.85rem;
-  margin: 1.2rem 0 0.8rem;
+  margin: 1.3rem 0 0.95rem;
 }
 
 .landing-actions a {
   text-decoration: none;
   border-radius: 999px;
-  padding: 0.8rem 1.2rem;
+  padding: 0.82rem 1.24rem;
   font-weight: 700;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -98,7 +124,7 @@ body {
   background: rgba(251, 247, 240, 0.88);
   border: 1px solid var(--c-line);
   border-radius: 18px;
-  padding: 1.1rem;
+  padding: 1rem;
   box-shadow: 0 18px 40px rgba(31, 26, 19, 0.08);
 }
 
@@ -110,24 +136,64 @@ body {
 
 .landing-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .landing-panel {
   background: rgba(240, 230, 213, 0.78);
-  border-left: 4px solid var(--c-accent);
+  border-top: 4px solid var(--c-accent);
   border-radius: 14px;
-  padding: 1rem 1.1rem;
+  padding: 1rem 1.05rem;
 }
 
 .landing-panel h3 {
-  margin-top: 0;
+  margin: 0 0 0.45rem;
+  font-size: 1.18rem;
 }
 
-@media (max-width: 900px) {
+.landing-panel p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.landing-wide {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.landing-note,
+.landing-checklist {
+  background: rgba(251, 247, 240, 0.86);
+  border: 1px solid var(--c-line);
+  border-radius: 16px;
+  padding: 1.2rem 1.25rem;
+}
+
+.landing-checklist ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.landing-checklist li + li {
+  margin-top: 0.5rem;
+}
+
+code {
+  background: #f2ebdf;
+  color: var(--c-green);
+  border: 1px solid var(--c-line);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+@media (max-width: 980px) {
   .landing-hero,
-  .landing-grid {
+  .landing-grid,
+  .landing-wide {
     grid-template-columns: 1fr;
   }
 }
@@ -136,32 +202,59 @@ body {
 <section class="landing">
   <div class="landing-hero">
     <div class="landing-copy">
-      <span class="landing-kicker">tidyverse + ggplot2</span>
-      <h1>De datos tabulares a gráficos claros, elegantes y reproducibles</h1>
-      <p>Esta versión web organiza la guía como un sitio navegable. Desde aquí puedes leer la explicación completa en HTML o descargar la misma guía en PDF generado con Typst.</p>
+      <span class="landing-kicker">proceso de diseño con ggplot2</span>
+      <h1>Un buen gráfico no empieza en el tema final: empieza en la lectura del dato</h1>
+      <p>Esta guía está organizada como una secuencia de decisiones. Primero se reconoce la estructura de las variables, luego se elige la comparación central, después se construyen capas con intención y al final se refina el mensaje visual para que el gráfico explique algo con claridad.</p>
+      <div class="landing-steps">
+        <span class="landing-step"><strong>1.</strong> Leer variables</span>
+        <span class="landing-step"><strong>2.</strong> Elegir comparación</span>
+        <span class="landing-step"><strong>3.</strong> Construir capas</span>
+        <span class="landing-step"><strong>4.</strong> Refinar el mensaje</span>
+      </div>
       <div class="landing-actions">
         <a class="btn-primary" href="./guia_proceso_ggplot2.html">Abrir la guía</a>
         <a class="btn-secondary" href="./guia_proceso_ggplot2.pdf">Descargar PDF</a>
       </div>
-      <p><strong>Incluye:</strong> fundamentos visuales, decisiones sobre geoms y escalas, patrones de refinamiento y una plantilla reusable para tu flujo de trabajo con <code>ggplot2</code>.</p>
+      <p><strong>Aquí no se trata de memorizar geoms aislados.</strong> La idea es practicar un flujo estable para pasar de una tabla a una visualización que ordene la atención, sostenga comparaciones y comunique una conclusión defendible con <code>ggplot2</code>.</p>
     </div>
     <div class="landing-card">
-      <img src="./poster-big.png" alt="Vista previa de la guía de ggplot2">
+      <img src="./hero-proceso-ggplot.png" alt="Secuencia de construcción de un gráfico con ggplot2">
     </div>
   </div>
 
   <div class="landing-grid">
     <div class="landing-panel">
-      <h3>Lectura web</h3>
-      <p>La página HTML conserva tabla de contenidos, bloques plegables y navegación lateral para consulta rápida.</p>
+      <h3>Leer la estructura</h3>
+      <p>Antes de graficar, conviene distinguir si la variable es continua, categórica, ordinal o temporal y qué tipo de lectura permite.</p>
     </div>
     <div class="landing-panel">
-      <h3>PDF con Typst</h3>
-      <p>La exportación a PDF mantiene un formato listo para lectura, impresión y distribución fuera del navegador.</p>
+      <h3>Elegir la forma</h3>
+      <p>El tipo de gráfico se decide por la pregunta analítica: comparar, distribuir, relacionar, seguir cambios o mostrar composición.</p>
     </div>
     <div class="landing-panel">
-      <h3>Sitio Quarto</h3>
-      <p>El proyecto ya puede renderizarse como sitio estático en <code>_site/</code> y servirse localmente con <code>quarto preview</code>.</p>
+      <h3>Ordenar la jerarquía</h3>
+      <p>Color, tamaño, facetas, escalas y etiquetas solo entran cuando ayudan a priorizar la lectura principal del gráfico.</p>
+    </div>
+    <div class="landing-panel">
+      <h3>Cerrar con intención</h3>
+      <p>Un gráfico terminado no es solo correcto: guía la vista, reduce fricción interpretativa y deja clara la conclusión importante.</p>
+    </div>
+  </div>
+
+  <div class="landing-wide">
+    <div class="landing-note">
+      <h2>Qué vas a practicar en la guía</h2>
+      <p>La guía completa desarrolla un recorrido que va desde la gramática mínima de <code>ggplot2</code> hasta decisiones de estilo, composición y narrativa. El foco no está en producir gráficos “bonitos” al final, sino en construir gráficos legibles desde la primera decisión correcta.</p>
+      <p>Por eso el documento combina criterios para elegir geoms, ejemplos comparativos, patrones de refinamiento y un atlas de opciones según la estructura de los datos.</p>
+    </div>
+    <div class="landing-checklist">
+      <h2>Preguntas guía</h2>
+      <ul>
+        <li>¿Qué relación o comparación debe leerse primero?</li>
+        <li>¿Qué estética realmente ayuda y cuál solo distrae?</li>
+        <li>¿La escala hace visible la magnitud correcta?</li>
+        <li>¿El título y las anotaciones dicen qué mirar?</li>
+      </ul>
     </div>
   </div>
 </section>
