@@ -15,6 +15,7 @@ project:
 
 website:
   title: "Guía práctica de ggplot2"
+  site-url: https://paulesantos.github.io/tidyverse_ggplot2_guia/
   page-navigation: true
   navbar:
     background: "#F4EBDD"

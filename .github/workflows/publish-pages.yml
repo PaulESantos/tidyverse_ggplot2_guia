@@ -18,10 +18,13 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Pages
         uses: actions/configure-pages@v5
@@ -48,6 +51,15 @@ jobs:
       - name: Render site
         run: quarto render
 
+      - name: Verify rendered site
+        run: |
+          test -f _site/index.html
+          test -f _site/guia_proceso_ggplot2.html
+          test -f _site/guia_proceso_ggplot2.pdf
+
+      - name: Disable Jekyll processing
+        run: touch _site/.nojekyll
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -56,6 +68,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -64,3 +77,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+

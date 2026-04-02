@@ -1,6 +1,5 @@
 ---
 title: "Guía práctica de ggplot2"
-subtitle: "Proceso, refinamiento y lectura final"
 page-layout: full
 format:
   html:
@@ -29,10 +28,15 @@ body {
   color: var(--c-deep);
 }
 
+.quarto-title-block,
+#title-block-header {
+  display: none !important;
+}
+
 .landing {
   max-width: 1160px;
   margin: 0 auto;
-  padding: 2rem 0 3.2rem;
+  padding: 0.5rem 0 3.2rem;
 }
 
 .landing-hero {
@@ -49,15 +53,6 @@ body {
 .landing-panel h3,
 .landing-wide h2 {
   font-family: 'Playfair Display', serif;
-}
-
-.landing-kicker {
-  display: inline-block;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--c-muted);
-  font-size: 0.85rem;
-  margin-bottom: 0.7rem;
 }
 
 .landing-copy p,
@@ -202,7 +197,6 @@ code {
 <section class="landing">
   <div class="landing-hero">
     <div class="landing-copy">
-      <span class="landing-kicker">proceso de diseño con ggplot2</span>
       <h1>Un buen gráfico no empieza en el tema final: empieza en la lectura del dato</h1>
       <p>Esta guía está organizada como una secuencia de decisiones. Primero se reconoce la estructura de las variables, luego se elige la comparación central, después se construyen capas con intención y al final se refina el mensaje visual para que el gráfico explique algo con claridad.</p>
       <div class="landing-steps">
